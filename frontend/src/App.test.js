@@ -1,16 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
 import App from './App';
 
-test('renders expense sharing app text', () => {
+test('renders learn react link', () => {
   render(
-    <AuthProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   );
-  const textElement = screen.getByText(/Expense Sharing App/i);
-  expect(textElement).toBeInTheDocument();
+  const linkElement = screen.getByText(/Expense Sharing App/i);
+  expect(linkElement).toBeInTheDocument();
 });
