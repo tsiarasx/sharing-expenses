@@ -12,7 +12,6 @@ The project follows a standard MERN stack architecture with separated `frontend`
 *   **Backend:** Express.js, Node.js
 *   **Frontend:** React.js
 *   **Styling:** Tailwind CSS (configured in frontend)
-*   **Containerization:** Docker & Docker Compose
 
 ## Next Steps
 
