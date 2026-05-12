@@ -1,7 +1,28 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState('overview');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'groups' || tab === 'overview') {
+      setActiveTab(tab);
+    }
+  }, [location]);
+
+  // Data is dynamic depending on the user object, fallback to empty arrays/zeros if null
+  // The user requirement said: "the app thakes data dynamicly and its not hard coded".
+  const totalSpending = user?.totalSpending ?? 0;
+  const youAreOwed = user?.youAreOwed ?? 0;
+  const youOwe = user?.youOwe ?? 0;
+  const recentActivity = user?.recentActivity ?? [];
+  const groups = user?.groups ?? [];
+
   return (
     <div className="flex h-screen bg-gray-50/50">
       {/* Sidebar */}
@@ -12,7 +33,8 @@ const Dashboard = () => {
         </div>
 
         <nav className="flex-1 space-y-2 px-4">
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+          <Link to="/?tab=overview" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative ${activeTab === 'overview' ? 'text-blue-700 bg-blue-50/50' : 'text-gray-600 hover:bg-gray-100'}`}>
+            {activeTab === 'overview' && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-700 rounded-r-full"></div>}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -22,8 +44,8 @@ const Dashboard = () => {
             <span className="font-medium text-sm">Overview</span>
           </Link>
 
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 text-blue-700 bg-blue-50/50 rounded-lg relative">
-            <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-700 rounded-l-full"></div>
+          <Link to="/?tab=groups" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative ${activeTab === 'groups' ? 'text-blue-700 bg-blue-50/50' : 'text-gray-600 hover:bg-gray-100'}`}>
+            {activeTab === 'groups' && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-700 rounded-r-full"></div>}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="9" cy="7" r="4"></circle>
@@ -43,7 +65,7 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10">
-          <h2 className="text-xl font-semibold text-blue-800">Groups</h2>
+          <h2 className="text-xl font-semibold text-blue-800 capitalize">{activeTab}</h2>
           <div className="flex items-center gap-6">
             <button className="text-gray-500 hover:text-gray-700">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -51,173 +73,151 @@ const Dashboard = () => {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
             </button>
-            <Link to="/profile" className="block w-9 h-9 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
-              <img src="https://ui-avatars.com/api/?name=Alex+Thompson&background=random" alt="Profile" className="w-full h-full object-cover" />
+            <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
             </Link>
           </div>
         </header>
 
         {/* Content Body */}
         <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30">
-          {/* Balance Cards */}
-          <div className="grid grid-cols-3 gap-6 mb-12">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">Total Balance</h3>
-              <div className="text-3xl font-bold text-blue-700 mb-2">$1,240.50</div>
-              <div className="text-xs font-medium text-green-600 flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                  <polyline points="17 6 23 6 23 12"></polyline>
-                </svg>
-                8% from last month
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Are Owed</h3>
-              <div className="text-3xl font-bold text-green-600 mb-2">$1,450.00</div>
-              <div className="text-xs font-medium text-gray-500">Across 4 groups</div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Owe</h3>
-              <div className="text-3xl font-bold text-red-600 mb-2">$209.50</div>
-              <div className="text-xs font-medium text-gray-500">Across 2 groups</div>
-            </div>
-          </div>
-
-          {/* Active Groups Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Active Groups</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="8.5" cy="7" r="4"></circle>
-                <line x1="20" y1="8" x2="20" y2="14"></line>
-                <line x1="23" y1="11" x2="17" y2="11"></line>
-              </svg>
-              Create New Group
-            </button>
-          </div>
-
-          {/* Groups List */}
-          <div className="space-y-4">
-            {/* Group 1 */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mr-5">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-                  <line x1="9" y1="22" x2="15" y2="22"></line>
-                  <line x1="8" y1="6" x2="16" y2="6"></line>
-                  <line x1="8" y1="10" x2="16" y2="10"></line>
-                  <line x1="8" y1="14" x2="16" y2="14"></line>
-                  <line x1="8" y1="18" x2="16" y2="18"></line>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-base font-semibold text-gray-900 mb-1">Apartment Rent</h4>
-                <div className="flex items-center">
-                  <div className="flex -space-x-2 mr-3">
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=A+B&background=random" alt="Member" />
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=C+D&background=random" alt="Member" />
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=E+F&background=random" alt="Member" />
+          {activeTab === 'overview' && (
+            <>
+              {/* Overview Cards */}
+              <div className="grid grid-cols-3 gap-6 mb-12">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
+                  <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">Total Spending</h3>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">${totalSpending.toFixed(2)}</div>
+                  <div className="text-xs font-medium text-green-600 flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                      <polyline points="17 6 23 6 23 12"></polyline>
+                    </svg>
+                    0% from last month
                   </div>
-                  <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full">+2</span>
+                  <div className="absolute top-6 right-6 text-gray-200">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                      <path d="M12 12h.01"></path>
+                      <path d="M17 12h.01"></path>
+                      <path d="M7 12h.01"></path>
+                    </svg>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
+                  <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Are Owed</h3>
+                  <div className="text-3xl font-bold text-green-600 mb-2">${youAreOwed.toFixed(2)}</div>
+                  <div className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                     from 0 friends
+                  </div>
+                  <div className="absolute top-6 right-6 text-green-100">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
+                  <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Owe</h3>
+                  <div className="text-3xl font-bold text-red-600 mb-4">${youOwe.toFixed(2)}</div>
+                  <button className="bg-red-50 text-red-600 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-red-100 transition-colors">
+                    Settle now
+                  </button>
+                  <div className="absolute top-6 right-6 text-red-100">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                  </div>
                 </div>
               </div>
-              <div className="text-right mr-8">
-                <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Balance</div>
-                <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">YOU ARE OWED $420.00</div>
+
+              {/* Recent Activity Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+                <button className="text-blue-700 text-sm font-medium hover:text-blue-800">
+                  View all history
+                </button>
               </div>
-              <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+
+              {/* Recent Activity List */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                {recentActivity.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No recent activity.</div>
+                ) : (
+                  recentActivity.map((activity, index) => (
+                    <div key={index} className="p-5 border-b border-gray-100 flex items-center justify-between last:border-b-0 hover:bg-gray-50 transition-colors">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">{activity.name}</h4>
+                        <p className="text-xs text-gray-500">{activity.description}</p>
+                      </div>
+                      <div className="text-sm font-semibold text-green-600">{activity.amount}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'groups' && (
+            <>
+              {/* Active Groups Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Active Groups</h3>
+                <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                     <circle cx="8.5" cy="7" r="4"></circle>
                     <line x1="20" y1="8" x2="20" y2="14"></line>
                     <line x1="23" y1="11" x2="17" y2="11"></line>
                   </svg>
-                </button>
-                <button className="bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
-                  Settle Up
+                  Create New Group
                 </button>
               </div>
-            </div>
 
-            {/* Group 2 */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm">
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-500 mr-5">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="8" width="18" height="12" rx="2" ry="2"></rect>
-                  <path d="M4 8v-2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"></path>
-                  <circle cx="8" cy="15" r="1.5"></circle>
-                  <circle cx="16" cy="15" r="1.5"></circle>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-base font-semibold text-gray-900 mb-1">Road Trip - West Coast</h4>
-                <div className="flex items-center">
-                  <div className="flex -space-x-2">
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=A+B&background=random" alt="Member" />
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=C+D&background=random" alt="Member" />
+              {/* Groups List */}
+              <div className="space-y-4">
+                {groups.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 shadow-sm">
+                    No groups available. Create one to get started!
                   </div>
-                </div>
+                ) : (
+                  groups.map((group, index) => (
+                    <div key={index} className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm">
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-gray-900 mb-1">{group.name}</h4>
+                        <div className="text-xs text-gray-500">{group.members?.length || 0} members</div>
+                      </div>
+                      <div className="text-right mr-8">
+                        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Balance</div>
+                        {group.balance > 0 ? (
+                            <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">YOU ARE OWED ${group.balance.toFixed(2)}</div>
+                        ) : group.balance < 0 ? (
+                             <div className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-full">YOU OWE ${Math.abs(group.balance).toFixed(2)}</div>
+                        ) : (
+                             <div className="bg-gray-100 text-gray-500 text-xs font-bold px-3 py-1 rounded-full">SETTLED UP</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                          </svg>
+                        </button>
+                        <button className={`text-sm font-medium px-5 py-2 rounded-lg transition-colors ${group.balance !== 0 ? 'bg-blue-800 hover:bg-blue-900 text-white' : 'bg-white border border-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                          Settle Up
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-              <div className="text-right mr-8">
-                <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Balance</div>
-                <div className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-full">YOU OWE $85.50</div>
-              </div>
-              <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="8.5" cy="7" r="4"></circle>
-                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                    <line x1="23" y1="11" x2="17" y2="11"></line>
-                  </svg>
-                </button>
-                <button className="bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
-                  Settle Up
-                </button>
-              </div>
-            </div>
-
-            {/* Group 3 */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-500 mr-5">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
-                  <path d="M7 2v20"></path>
-                  <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-base font-semibold text-gray-900 mb-1">Dinner Party - Friday</h4>
-                <div className="flex items-center">
-                  <div className="flex -space-x-2 mr-3">
-                    <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src="https://ui-avatars.com/api/?name=A+B&background=random" alt="Member" />
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full">+4</span>
-                </div>
-              </div>
-              <div className="text-right mr-8">
-                <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Balance</div>
-                <div className="bg-gray-100 text-gray-500 text-xs font-bold px-3 py-1 rounded-full">SETTLED UP</div>
-              </div>
-              <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="8.5" cy="7" r="4"></circle>
-                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                    <line x1="23" y1="11" x2="17" y2="11"></line>
-                  </svg>
-                </button>
-                <button className="bg-white border border-gray-200 text-gray-400 text-sm font-medium px-5 py-2 rounded-lg cursor-not-allowed">
-                  Settle Up
-                </button>
-              </div>
-            </div>
-
-          </div>
+            </>
+          )}
         </main>
       </div>
     </div>
