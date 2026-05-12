@@ -1,20 +1,20 @@
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const EXPENSE_URL = `${API_URL}/api/expenses`;
+const GROUP_URL = `${API_URL}/api/groups`;
 
-const getExpenses = async (token) => {
+const getGroups = async (token) => {
   const config = {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   };
-  const response = await axios.get(EXPENSE_URL, config);
+  const response = await axios.get(GROUP_URL, config);
   return response.data;
 };
 
-const expenseService = {
-  getExpenses,
+const groupService = {
+  getGroups,
 };
 
-export default expenseService;
+export default groupService;
