@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const handleCreateGroup = (e) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+    // For now we navigate to the new group route. Generating a dummy ID.
+    const dummyId = Math.random().toString(36).substring(2, 9);
+    setShowCreateGroupModal(false);
+    navigate(`/groups/${dummyId}`);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -165,7 +178,10 @@ const Dashboard = () => {
               {/* Active Groups Header */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Active Groups</h3>
-                <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+                <button
+                  onClick={() => setShowCreateGroupModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                     <circle cx="8.5" cy="7" r="4"></circle>
@@ -175,6 +191,44 @@ const Dashboard = () => {
                   Create New Group
                 </button>
               </div>
+
+              {/* Create Group Modal */}
+              {showCreateGroupModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Create New Group</h3>
+                    <form onSubmit={handleCreateGroup}>
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
+                        <input
+                          type="text"
+                          value={newGroupName}
+                          onChange={(e) => setNewGroupName(e.target.value)}
+                          placeholder="e.g., Summer Trip, Apartment"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          autoFocus
+                          required
+                        />
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateGroupModal(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors"
+                        >
+                          Create Group
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
               {/* Groups List */}
               <div className="space-y-4">

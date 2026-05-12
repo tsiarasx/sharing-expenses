@@ -130,13 +130,6 @@ const Profile = () => {
             <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm p-8">
               <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
-                <button className="text-blue-700 text-sm font-medium flex items-center gap-1 hover:text-blue-800">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 20h9"></path>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                  </svg>
-                  Edit All
-                </button>
               </div>
 
               <form onSubmit={handleUpdate} className="space-y-6">
@@ -155,9 +148,6 @@ const Profile = () => {
                       placeholder="Alex Thompson"
                     />
                   </div>
-                  <div className="w-auto">
-                    <button type="button" className="text-blue-700 text-sm font-medium hover:text-blue-800">Update</button>
-                  </div>
                 </div>
 
                 {/* Email Address */}
@@ -175,9 +165,6 @@ const Profile = () => {
                       placeholder="alex.t@example.com"
                     />
                   </div>
-                  <div className="w-auto">
-                    <button type="button" className="text-blue-700 text-sm font-medium hover:text-blue-800">Update</button>
-                  </div>
                 </div>
 
                 {/* Password */}
@@ -194,9 +181,6 @@ const Profile = () => {
                       className="w-full bg-transparent text-sm text-gray-900 outline-none tracking-widest border-b border-transparent focus:border-gray-300 py-1"
                       placeholder="••••••••••••"
                     />
-                  </div>
-                  <div className="w-auto">
-                    <button type="button" className="text-blue-700 text-sm font-medium hover:text-blue-800 whitespace-nowrap">Change Password</button>
                   </div>
                 </div>
 
