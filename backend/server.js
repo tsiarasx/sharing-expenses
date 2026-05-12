@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 // Initialize express application
 const app = express();
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 // For now, let's keep it simple to ensure the server starts properly.
 
 app.use('/api/auth', authRoutes);
+app.use('/api/groups', groupRoutes);
 
 const PORT = process.env.PORT || 5000;
 

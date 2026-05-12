@@ -1,23 +1,35 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { GroupContext } from '../context/GroupContext';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
+  const { groups, createGroup: createGroupAPI, loading: groupsLoading } = useContext(GroupContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
 
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
-  const handleCreateGroup = (e) => {
+  const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
-    // For now we navigate to the new group route. Generating a dummy ID.
-    const dummyId = Math.random().toString(36).substring(2, 9);
-    setShowCreateGroupModal(false);
-    navigate(`/groups/${dummyId}`);
+    
+    try {
+      setCreatingGroup(true);
+      const newGroup = await createGroupAPI({ name: newGroupName.trim() });
+      setShowCreateGroupModal(false);
+      setNewGroupName('');
+      navigate(`/groups/${newGroup._id}`);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      alert('Failed to create group. Please try again.');
+    } finally {
+      setCreatingGroup(false);
+    }
   };
 
   useEffect(() => {
@@ -34,7 +46,6 @@ const Dashboard = () => {
   const youAreOwed = user?.youAreOwed ?? 0;
   const youOwe = user?.youOwe ?? 0;
   const recentActivity = user?.recentActivity ?? [];
-  const groups = user?.groups ?? [];
 
   return (
     <div className="flex h-screen bg-gray-50/50">
@@ -220,9 +231,10 @@ const Dashboard = () => {
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors"
+                          disabled={creatingGroup}
+                          className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Create Group
+                          {creatingGroup ? 'Creating...' : 'Create Group'}
                         </button>
                       </div>
                     </form>
@@ -232,16 +244,24 @@ const Dashboard = () => {
 
               {/* Groups List */}
               <div className="space-y-4">
-                {groups.length === 0 ? (
+                {groupsLoading ? (
+                  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 shadow-sm">
+                    Loading groups...
+                  </div>
+                ) : groups.length === 0 ? (
                   <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 shadow-sm">
                     No groups available. Create one to get started!
                   </div>
                 ) : (
-                  groups.map((group, index) => (
-                    <div key={index} className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm">
+                  groups.map((group) => (
+                    <Link
+                      key={group._id}
+                      to={`/groups/${group._id}`}
+                      className="bg-white border border-gray-200 rounded-xl p-5 flex items-center shadow-sm hover:shadow-md transition-shadow"
+                    >
                       <div className="flex-1">
                         <h4 className="text-base font-semibold text-gray-900 mb-1">{group.name}</h4>
-                        <div className="text-xs text-gray-500">{group.members?.length || 0} members</div>
+                        <div className="text-xs text-gray-500">{group.members?.length || 0} member{group.members?.length !== 1 ? 's' : ''}</div>
                       </div>
                       <div className="text-right mr-8">
                         <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Balance</div>
@@ -266,7 +286,7 @@ const Dashboard = () => {
                           Settle Up
                         </button>
                       </div>
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>
