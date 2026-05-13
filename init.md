@@ -26,7 +26,6 @@ Expense-Sharing-App/
 └── frontend/
     ├── public/
     ├── src/
-    │   ├── assets/
     │   ├── pages/
     │   ├── context/
     │   ├── services/

@@ -38,14 +38,14 @@ Default dev URL is typically `http://localhost:3000` (check the terminal output)
 - `backend/controllers/` — request handlers (e.g. `authController.js`, `groupController.js`).
 - `backend/models/` — Mongoose schemas (`User.js`, `Group.js`, `Expense.js`).
 - `backend/routes/` — Express route definitions (`authRoutes.js`, `groupRoutes.js`).
-- `backend/middleware/` — auth and error middleware (`authMiddleware.js`, `errorMiddleware.js`).
+- `backend/middleware/` — auth middleware (`authMiddleware.js`).
 - `backend/utils/` — helper utilities (`generateToken.js`).
 
 ### Frontend
 - `frontend/src/index.js` — React bootstrap.
 - `frontend/src/App.js` — main app and route definitions.
 - `frontend/src/pages/` — page components (`Dashboard.js`, `GroupDetails.js`, `Login.js`, `Register.js`, `Profile.js`).
-- `frontend/src/services/` — API wrappers (`authService.js`, `groupService.js`, `expenseService.js`).
+- `frontend/src/services/` — API wrappers (`authService.js`, `groupService.js`).
 - `frontend/src/context/` — React Context providers (`AuthContext.js`, `GroupContext.js`).
 
 Note: There is currently no `frontend/src/components` directory in this repository. Shared or reusable UI components are currently colocated in `src/pages/` or can be added under `frontend/src/components/` if you want to factor them out in future work.
