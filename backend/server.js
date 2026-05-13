@@ -20,12 +20,10 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
-// Import Routes (assuming they are defined in backend/routes)
-// These routes exist but are currently empty files according to previous ls
-// We can set them up here but we don't have to require them until they have content
-// For now, let's keep it simple to ensure the server starts properly.
-
+// ESA-12: Authentication Routes
 app.use('/api/auth', authRoutes);
+
+// ESA-13: Group Creation Routes
 app.use('/api/groups', groupRoutes);
 
 const PORT = process.env.PORT || 5000;

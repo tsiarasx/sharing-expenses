@@ -6,10 +6,12 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import GroupDetails from './pages/GroupDetails';
+import Navbar from './components/Navbar';
 
 function App() {
   return (
     <div className="App font-sans text-gray-900 bg-gray-50 min-h-screen">
+      <Navbar />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/login" element={<Login />} />

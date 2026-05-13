@@ -1,4 +1,4 @@
-(node:465633) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(node:109357) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 Server is running on port 5000
 Error: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
