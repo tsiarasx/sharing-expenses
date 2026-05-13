@@ -1,44 +1,37 @@
 const mongoose = require('mongoose');
 
-const expenseSchema = new mongoose.Schema(
-  {
-    amount: {
-      type: Number,
-      required: true,
-    },
-    description: {
-      type: String,
-      required: true,
-    },
-    date: {
-      type: Date,
-      required: true,
-      default: Date.now,
-    },
-    payer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    participants: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-          required: true,
-        },
-        amount: {
-          type: Number,
-          required: true,
-        },
-      },
-    ],
+const expenseSchema = new mongoose.Schema({
+  group: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: true,
   },
-  {
-    timestamps: true,
-  }
-);
+  description: {
+    type: String,
+    required: true,
+  },
+  totalAmount: {
+    type: Number,
+    required: true,
+  },
+  payer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  splits: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      amountOwed: {
+        type: Number,
+        required: true,
+      }
+    }
+  ]
+}, { timestamps: true });
 
-const Expense = mongoose.model('Expense', expenseSchema);
-
-module.exports = Expense;
+module.exports = mongoose.model('Expense', expenseSchema);

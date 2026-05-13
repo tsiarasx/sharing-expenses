@@ -1,21 +1,40 @@
-# Project Initialization
+# Project Initialization Context (init.md)
 
-This document outlines the initial setup and configuration of the Expense-Sharing App project.
+## 1. Project Overview
+This is the "Expense-Sharing App" for groups (friends, roommates, travelers) to track shared expenses, compute who owes whom, and minimize settlement transactions.
 
-## Directory Structure
+## 2. Tech Stack
+- **Frontend:** React.js, Tailwind CSS, Axios, React Router
+- **Backend:** Node.js, Express.js
+- **Database:** MongoDB (Mongoose)
+- **Authentication:** JWT and bcrypt
+- **Environment:** Local development with `npm` and a MongoDB instance (local or Atlas)
 
-The project follows a standard MERN stack architecture with separated `frontend` and `backend` directories.
+## 3. Architecture & Directory Structure (actual)
+The repo uses a simple monorepo layout with separate `backend` and `frontend` folders.
 
-## Core Technologies
+```text
+Expense-Sharing-App/
+├── backend/
+│   ├── server.js
+│   ├── config/db.js
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   └── package.json
+└── frontend/
+    ├── public/
+    ├── src/
+    │   ├── pages/
+    │   ├── context/
+    │   ├── services/
+    │   │   ├── api.js          ← shared Axios instance (base URL + auth interceptor)
+    │   │   ├── authService.js
+    │   │   └── groupService.js
+    │   ├── index.js
+    │   └── App.js
+    ├── tailwind.config.js
+    └── package.json
+```
 
-*   **Database:** MongoDB
-*   **Backend:** Express.js, Node.js
-*   **Frontend:** React.js
-*   **Styling:** Tailwind CSS (configured in frontend)
-
-## Next Steps
-
-1.  Implement backend authentication logic.
-2.  Design and implement MongoDB schemas for Users, Groups, and Expenses.
-3.  Set up frontend React components and routing.
-4.  Integrate backend APIs with the frontend application.

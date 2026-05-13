@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 // Initialize express application
 const app = express();
@@ -22,6 +24,9 @@ app.get('/', (req, res) => {
 // These routes exist but are currently empty files according to previous ls
 // We can set them up here but we don't have to require them until they have content
 // For now, let's keep it simple to ensure the server starts properly.
+
+app.use('/api/auth', authRoutes);
+app.use('/api/groups', groupRoutes);
 
 const PORT = process.env.PORT || 5000;
 
