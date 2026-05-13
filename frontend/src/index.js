@@ -9,13 +9,13 @@ import { GroupProvider } from './context/GroupContext';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <GroupProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <GroupProvider>
           <App />
-        </BrowserRouter>
-      </GroupProvider>
-    </AuthProvider>
+        </GroupProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
 

@@ -45,7 +45,9 @@ Default dev URL is typically `http://localhost:3000` (check the terminal output)
 - `frontend/src/index.js` — React bootstrap.
 - `frontend/src/App.js` — main app and route definitions.
 - `frontend/src/pages/` — page components (`Dashboard.js`, `GroupDetails.js`, `Login.js`, `Register.js`, `Profile.js`).
-- `frontend/src/services/` — API wrappers (`authService.js`, `groupService.js`).
+- `frontend/src/services/api.js` — shared Axios instance. Reads `REACT_APP_API_URL` for the base URL and attaches the JWT `Authorization` header automatically via a request interceptor. **Import this in every new service file instead of creating a new Axios instance.**
+- `frontend/src/services/authService.js` — auth API calls (register, login, updateProfile, deleteAccount).
+- `frontend/src/services/groupService.js` — group API calls (getGroups, createGroup, getGroupById, addMemberToGroup).
 - `frontend/src/context/` — React Context providers (`AuthContext.js`, `GroupContext.js`).
 
 Note: There is currently no `frontend/src/components` directory in this repository. Shared or reusable UI components are currently colocated in `src/pages/` or can be added under `frontend/src/components/` if you want to factor them out in future work.
@@ -63,17 +65,18 @@ When adding routes, register them in `server.js` (or wherever routes are mounted
 1. Create a new component in `frontend/src/pages/`.
 2. Import and add a `<Route>` in `frontend/src/App.js`.
 3. Add navigation in `frontend/src/components/Navbar.js` if it should be globally accessible.
-4. Add API calls to `frontend/src/services/` and update context/providers if the page requires global state.
+4. Add API calls to `frontend/src/services/` — **import the shared Axios instance from `./api`** and call the relevant endpoint. Update context/providers if the page requires global state.
 5. Add unit/integration tests and basic accessibility checks.
 
 ## Branches, commits, and PRs
 - Commit messages: short subject, optional body.
-- Develope on your dedicated branch with your name and i will handle the merge to the developing and then to main
+- Develop on your dedicated branch with your name and I will handle the merge to development and then to main
 
 ## Environment variables
 - Typical variables used by this app:
   - `MONGO_URI` — MongoDB connection string
   - `JWT_SECRET` — secret for signing auth tokens
-  - `PORT` — backend port (optional)
+  - `PORT` — backend port (optional, default 5000)
+  - `REACT_APP_API_URL` — frontend env var for the backend base URL (optional, default `http://localhost:5000`)
 
 

@@ -1,49 +1,26 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const GROUP_URL = `${API_URL}/api/groups`;
+import api from './api';
 
 // Get all groups for the logged-in user
-const getGroups = async (token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-  const response = await axios.get(GROUP_URL, config);
+const getGroups = async () => {
+  const response = await api.get('/api/groups');
   return response.data;
 };
 
 // Create a new group
-const createGroup = async (groupData, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-  const response = await axios.post(GROUP_URL, groupData, config);
+const createGroup = async (groupData) => {
+  const response = await api.post('/api/groups', groupData);
   return response.data;
 };
 
 // Get a single group by ID
-const getGroupById = async (groupId, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-  const response = await axios.get(`${GROUP_URL}/${groupId}`, config);
+const getGroupById = async (groupId) => {
+  const response = await api.get(`/api/groups/${groupId}`);
   return response.data;
 };
 
 // Add member to group
-const addMemberToGroup = async (groupId, memberData, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-  const response = await axios.post(`${GROUP_URL}/${groupId}/members`, memberData, config);
+const addMemberToGroup = async (groupId, memberData) => {
+  const response = await api.post(`/api/groups/${groupId}/members`, memberData);
   return response.data;
 };
 

@@ -78,3 +78,9 @@ npm start
 ## API
 
 Base URL when running locally: `http://localhost:5000`
+
+The frontend reads `REACT_APP_API_URL` to determine the backend base URL (defaults to `http://localhost:5000`). To override it, add a `.env` file to `frontend/` with:
+
+```env
+REACT_APP_API_URL=http://your-backend-url
+```

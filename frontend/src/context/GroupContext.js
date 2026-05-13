@@ -23,7 +23,7 @@ export const GroupProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await groupService.getGroups(user.token);
+      const data = await groupService.getGroups();
       setGroups(data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch groups');
@@ -37,7 +37,7 @@ export const GroupProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const newGroup = await groupService.createGroup(groupData, user.token);
+      const newGroup = await groupService.createGroup(groupData);
       setGroups([...groups, newGroup]);
       return newGroup;
     } catch (err) {
@@ -53,7 +53,7 @@ export const GroupProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const group = await groupService.getGroupById(groupId, user.token);
+      const group = await groupService.getGroupById(groupId);
       return group;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch group');
@@ -68,7 +68,7 @@ export const GroupProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const updatedGroup = await groupService.addMemberToGroup(groupId, memberData, user.token);
+      const updatedGroup = await groupService.addMemberToGroup(groupId, memberData);
       // Update the group in the local state
       setGroups(groups.map(g => g._id === groupId ? updatedGroup : g));
       return updatedGroup;

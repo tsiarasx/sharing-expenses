@@ -32,14 +32,14 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (userData) => {
     if (user && user.token) {
-      const res = await authService.updateProfile(userData, user.token);
+      const res = await authService.updateProfile(userData);
       setUser(res);
     }
   };
 
   const deleteAccount = async () => {
     if (user && user.token) {
-      await authService.deleteAccount(user.token);
+      await authService.deleteAccount();
       setUser(null);
     }
   };

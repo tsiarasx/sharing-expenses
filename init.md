@@ -29,6 +29,9 @@ Expense-Sharing-App/
     │   ├── pages/
     │   ├── context/
     │   ├── services/
+    │   │   ├── api.js          ← shared Axios instance (base URL + auth interceptor)
+    │   │   ├── authService.js
+    │   │   └── groupService.js
     │   ├── index.js
     │   └── App.js
     ├── tailwind.config.js

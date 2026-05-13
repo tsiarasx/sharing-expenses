@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const User = require('../models/User');
 
@@ -26,7 +27,7 @@ const createGroup = async (req, res) => {
 
     res.status(201).json(populatedGroup);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -41,7 +42,7 @@ const getGroups = async (req, res) => {
 
     res.json(groups);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -49,6 +50,9 @@ const getGroups = async (req, res) => {
 // @route   GET /api/groups/:id
 // @access  Private
 const getGroupById = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid group ID' });
+  }
   try {
     const group = await Group.findById(req.params.id).populate('members.user', 'name email');
 
@@ -67,7 +71,7 @@ const getGroupById = async (req, res) => {
 
     res.json(group);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -75,6 +79,9 @@ const getGroupById = async (req, res) => {
 // @route   POST /api/groups/:id/members
 // @access  Private
 const addMemberToGroup = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid group ID' });
+  }
   try {
     const { email } = req.body;
     const group = await Group.findById(req.params.id);
@@ -120,7 +127,7 @@ const addMemberToGroup = async (req, res) => {
 
     res.json(populatedGroup);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
