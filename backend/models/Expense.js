@@ -14,10 +14,29 @@ const expenseSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  date: {
+    type: String,
+  },
   payer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+  },
+  splitMethod: {
+    type: String,
+    enum: ['Equal Split', 'Exact Amounts', 'Percentages'],
+    default: 'Equal Split',
+  },
+  amountPerMember: {
+    type: Number,
+  },
+  customSplits: {
+    type: Object,
+    default: null,
+  },
+  percentageSplits: {
+    type: Object,
+    default: null,
   },
   splits: [
     {
