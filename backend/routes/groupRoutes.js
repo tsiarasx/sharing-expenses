@@ -6,6 +6,9 @@ const {
   getGroupById,
   addMemberToGroup
 } = require('../controllers/groupController');
+
+const { getGroupDashboard } = require('../controllers/dashboardController'); //Dimitra
+
 const { protect } = require('../middleware/authMiddleware');
 
 // Apply protect middleware to all routes
@@ -21,5 +24,7 @@ router.route('/:id')
 
 router.route('/:id/members')
   .post(addMemberToGroup);
+
+router.get('/:groupId/dashboard', getGroupDashboard); //Dimitra
 
 module.exports = router;
