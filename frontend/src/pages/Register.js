@@ -15,7 +15,7 @@ const Register = () => {
     e.preventDefault();
     try {
       await register({ name, email, password });
-      navigate('/');
+      navigate('/dashboard'); //Dimitra
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     }
