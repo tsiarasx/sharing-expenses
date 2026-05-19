@@ -36,9 +36,9 @@ const createGroup = async (req, res) => {
 // @access  Private
 const getGroups = async (req, res) => {
   try {
-    const groups = await Group.find({
-      'members.user': req.user._id
-    }).populate('members.user', 'name email');
+    const groups = await Group.find({ //changes so users dont automatically get accepted into groups they are invited to
+    members: { $elemMatch: { user: req.user._id, status: 'accepted' } } 
+});
 
     res.json(groups);
   } catch (error) {

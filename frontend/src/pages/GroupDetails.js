@@ -1,9 +1,48 @@
-import React from 'react';
+import React,{useState} from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { sendInvitation } from '../services/invitationService';
+import NotificationBell from './NotificationBell';
 
 const GroupDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  // States για την πρόσκληση
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteMessage, setInviteMessage] = useState(''); // Για success/error messages
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Η συνάρτηση που καλεί το backend για να στείλει την πρόσκληση
+  const handleInviteSubmit = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail) return;
+
+    try {
+      setIsLoading(true);
+      setInviteMessage('');
+      
+      // Καλεί το API (στέλνει το id της ομάδας και το email)
+      const res = await sendInvitation(id, inviteEmail);
+      
+      setInviteMessage({ type: 'success', text: res.message });
+      setInviteEmail(''); // Καθαρίζει το input
+      
+      // Κλείνει το modal μετά από 2 δευτερόλεπτα
+      setTimeout(() => {
+        setShowInviteModal(false);
+        setInviteMessage('');
+      }, 2000);
+      
+    } catch (error) {
+      setInviteMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to send invitation' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50/50">
@@ -56,12 +95,7 @@ const GroupDetails = () => {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-gray-500 hover:text-gray-700">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </button>
+            <NotificationBell />
             <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -74,13 +108,73 @@ const GroupDetails = () => {
         {/* Content Body */}
         <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30">
           <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-             <h3 className="text-lg font-semibold text-gray-900 mb-4">Group Dashboard (ID: {id})</h3>
+             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Group Dashboard (ID: {id})</h3>
+                <button 
+                  onClick={() => setShowInviteModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle>
+                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                  </svg>
+                </button>                
+              </div>
              <p className="text-gray-500 text-sm">
                 This space is ready for the team to implement group details, expense lists, member management, and settlement features.
              </p>
           </div>
         </main>
       </div>
+
+      {/* MODAL: Πρόσκλησης Χρήστη */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Invite Member to Group</h3>
+            
+            {inviteMessage && (
+              <div className={`mb-4 p-3 rounded text-sm ${inviteMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {inviteMessage.text}
+              </div>
+            )}
+
+            <form onSubmit={handleInviteSubmit}>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">User Email</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="friend@example.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? 'Sending...' : 'Send Invite'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
