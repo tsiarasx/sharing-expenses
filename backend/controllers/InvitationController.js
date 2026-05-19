@@ -57,30 +57,28 @@ const acceptInvitation = async (req, res) => {
     const { groupId } = req.params;
     const userId = req.user._id;
 
-    const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
-
-    // Βρίσκουμε τον χρήστη μέσα στο array members του group
-    const memberIndex = group.members.findIndex(
-      (m) => m.user.toString() === userId.toString()
+    // Atomic update: set the specific member's status to 'accepted'
+    const group = await Group.findOneAndUpdate(
+      { _id: groupId, 'members.user': userId },
+      { $set: { 'members.$.status': 'accepted' } },
+      { new: true }
     );
 
-    if (memberIndex === -1) {
+    if (!group) {
+      const groupExists = await Group.findById(groupId);
+      if (!groupExists) {
+        return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
+      }
       return res.status(403).json({ message: 'Δεν έχετε πρόσκληση για αυτή την ομάδα.' });
     }
 
-    // Αλλάζουμε το status σε 'accepted'
-    group.members[memberIndex].status = 'accepted';
-    await group.save();
+    // $addToSet avoids duplicates and handles ObjectId/string casting correctly
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { groups: groupId } }
+    );
 
-    //Ενημερώνουμε και τον πίνακα groups του User
-    const user = await User.findById(userId);
-    if (user && !user.groups.includes(groupId)) {
-      user.groups.push(groupId);
-      await user.save();
-    }
-
-    // Κάνουμε Update (ή διαγράφουμε) τα σχετικά notifications
+    // Κάνουμε Update τα σχετικά notifications
     await Notification.updateMany(
       { user: userId, relatedGroup: groupId, type: 'invitation' },
       { $set: { isRead: true } }
@@ -99,20 +97,22 @@ const rejectInvitation = async (req, res) => {
     const { groupId } = req.params;
     const userId = req.user._id;
 
-    const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
-
-    // Αφαιρούμε τον χρήστη από το array members
-    group.members = group.members.filter(
-      (m) => m.user.toString() !== userId.toString()
+    // Atomic update: remove the user from members array
+    const group = await Group.findByIdAndUpdate(
+      groupId,
+      { $pull: { members: { user: userId } } },
+      { new: true }
     );
-    await group.save();
 
-    const user = await User.findById(userId);
-    if (user) {
-      user.groups = user.groups.filter(g => g.toString() !== groupId.toString());
-      await user.save();
+    if (!group) {
+      return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
     }
+
+    // Remove from user's groups array if present
+    await User.findByIdAndUpdate(
+      userId,
+      { $pull: { groups: groupId } }
+    );
 
     // Σβήνουμε το notification
     await Notification.updateMany(
