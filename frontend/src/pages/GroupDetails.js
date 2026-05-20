@@ -4,6 +4,7 @@ import expenseService from '../services/expenseService';
 import { AuthContext } from '../context/AuthContext';
 import { sendInvitation } from '../services/invitationService';
 import NotificationBell from './NotificationBell';
+import DebtSummary from './DebtSummary';
 
 const GroupDetails = () => {
   const { id } = useParams();
@@ -469,7 +470,7 @@ const GroupDetails = () => {
                         description,
                         totalAmount: Number(amount),
                         date,
-                        payer: user._id,
+                        payer: paidBy,
                         splitMethod,
                         amountPerMember:
                           splitMethod === 'Equal Split'
@@ -483,12 +484,20 @@ const GroupDetails = () => {
                           splitMethod === 'Percentages'
                             ? percentageSplits
                             : null,
-                        splits: [
-                          {
-                            user: user._id,
-                            amountOwed: Number(amount),
-                          },
-                        ],
+                     splits: members.map((member) => {
+                              let amountOwed = 0;
+                              if (splitMethod === 'Equal Split') {
+                                amountOwed = Number((Number(amount) / members.length).toFixed(2));
+                              } else if (splitMethod === 'Exact Amounts') {
+                                amountOwed = Number(customSplits[member.name] || 0);
+                              } else if (splitMethod === 'Percentages') {
+                                amountOwed = Number(((Number(amount) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2));
+                              }
+                              return {
+                                user: member.id,
+                                amountOwed,
+                              };
+                            }),
                       };
 
                       if (editingIndex !== null && editingId) {
@@ -607,6 +616,9 @@ const GroupDetails = () => {
               </div>
             </div>
           )}
+
+          {/* === Υπολογισμός Χρεών & Εξοφλήσεις === */}
+          <DebtSummary groupId={id} />
 
           <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
             <div className="flex items-center justify-between mb-6">

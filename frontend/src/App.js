@@ -1,13 +1,22 @@
 import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import './App.css';
-import ExpensesManager from './pages/SettleUp';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
+import GroupDetails from './pages/GroupDetails';
 
 function App() {
   return (
-    <div style={{ background: '#1e222b', minHeight: '100vh', color: 'white', padding: '20px' }}>
-      <h1 style={{ textAlign: 'center' }}>Expense Sharing Application</h1>
-      {/* Εδώ εμφανίζεται το κομμάτι σου, χωρίς να ρωτήσει κανέναν Router */}
-      <ExpensesManager />
+    <div className="App font-sans text-gray-900 bg-gray-50 min-h-screen">
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/groups/:id" element={<GroupDetails />} />
+      </Routes>
     </div>
   );
 }

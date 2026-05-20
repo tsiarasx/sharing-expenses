@@ -7,6 +7,7 @@ const groupRoutes = require('./routes/groupRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const debtRoutes = require('./routes/debtRoutes');
 
 // Initialize express application
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/debts', debtRoutes);
 
 const PORT = process.env.PORT || 5000;
 
