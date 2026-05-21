@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, SplitSquareHorizontal, X, Plus } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { GroupContext } from '../context/GroupContext';
+import NotificationBell from './NotificationBell';
 
 // ---------------------------------------------------------------------------
 // Loading screen
@@ -221,16 +222,8 @@ const Dashboard = () => {
         <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10">
           <h2 className="text-xl font-semibold text-blue-800 capitalize">{activeTab}</h2>
           <div className="flex items-center gap-6">
-            <button className="text-gray-500 hover:text-gray-700">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-            </button>
-            <Link
-              to="/profile"
-              className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white"
-            >
+          <NotificationBell />
+            <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
