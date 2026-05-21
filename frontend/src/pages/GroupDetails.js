@@ -18,7 +18,7 @@ import { AuthContext } from "../context/AuthContext";
 import expenseService from '../services/expenseService';
 import { sendInvitation } from '../services/invitationService';
 import NotificationBell from './NotificationBell';
-
+import DebtSummary from './DebtSummary';
 // ─────────────────────────────────────────────
 // HELPER — Format a number as a Euro amount
 // ─────────────────────────────────────────────
@@ -536,7 +536,10 @@ const GroupDetails = () => {
                 </div>
               </section>
 
-              {/* B. Members Grid */}
+              {/* B. Debt Summary */}
+              <DebtSummary groupId={groupId} />
+
+              {/* C. Members Grid */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <Users size={18} className="text-indigo-500" />
@@ -561,7 +564,7 @@ const GroupDetails = () => {
                 )}
               </section>
 
-              {/* C. Debt Relationships */}
+              {/* D. Debt Relationships */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <ArrowRight size={18} className="text-indigo-500" />
@@ -802,12 +805,25 @@ const GroupDetails = () => {
                     description,
                     totalAmount: Number(amount),
                     date,
-                    payer: user._id,
+                    payer: paidBy,
                     splitMethod,
                     amountPerMember: splitMethod === 'Equal Split' ? Number((Number(amount) / members.length).toFixed(2)) : null,
                     customSplits: splitMethod === 'Exact Amounts' ? customSplits : null,
                     percentageSplits: splitMethod === 'Percentages' ? percentageSplits : null,
-                    splits: [{ user: user._id, amountOwed: Number(amount) }],
+                    splits: members.map((member) => {
+                              let amountOwed = 0;
+                              if (splitMethod === 'Equal Split') {
+                                amountOwed = Number((Number(amount) / members.length).toFixed(2));
+                              } else if (splitMethod === 'Exact Amounts') {
+                                amountOwed = Number(customSplits[member.name] || 0);
+                              } else if (splitMethod === 'Percentages') {
+                                amountOwed = Number(((Number(amount) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2));
+                              }
+                              return {
+                                user: member.id,
+                                amountOwed,
+                              };
+                            }),
                   };
 
                   if (editingIndex !== null && editingId) {
