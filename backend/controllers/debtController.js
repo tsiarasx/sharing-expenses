@@ -2,26 +2,26 @@ const Expense = require('../models/Expense');
 const Settlement = require('../models/Settlement');
 
 /**
- * Υπολογίζει τα καθαρά χρέη μεταξύ μελών μιας ομάδας.
- * Αλγόριθμος:
- *   1. Για κάθε expense, ο payer πληρώνει για τους άλλους.
- *      Άρα κάθε split-user χρωστάει amountOwed στον payer.
- *   2. Χτίζουμε πίνακα balance[userId]: θετικό = πρέπει να εισπράξει,
- *      αρνητικό = πρέπει να πληρώσει.
- *   3. Αφαιρούμε τα ήδη καταγεγραμμένα settlements.
- *   4. Greedy minimize-transactions για να δούμε ποιος χρωστάει ποιον.
+ * Calculate net debts between members of a group.
+ * Algorithm:
+ *   1. For each expense, the payer pays for the others.
+ *      So each split-user owes amountOwed to the payer.
+ *   2. Build balance map[userId]: positive = needs to receive,
+ *      negative = needs to pay.
+ *   3. Subtract already recorded settlements.
+ *   4. Greedy minimize-transactions to see who owes whom.
  */
 const calculateDebts = async (req, res) => {
   try {
     const { groupId } = req.params;
 
-    // --- 1. Φόρτωσε όλα τα expenses της ομάδας ---
+    // --- 1. Load all group expenses ---
     const expenses = await Expense.find({ group: groupId })
       .populate('payer', 'name email')
       .populate('splits.user', 'name email');
 
-    // --- 2. Χτίσε balance map ---
-    // balance[userId] = net amount (+ = πρέπει να πάρει, - = πρέπει να δώσει)
+    // --- 2. Build balance map ---
+    // balance[userId] = net amount (+ = needs to receive, - = needs to pay)
     const balance = {}; // { userId: { name, amount } }
 
     const ensureUser = (id, name) => {
@@ -38,14 +38,14 @@ const calculateDebts = async (req, res) => {
         const splitUserName = split.user.name;
         ensureUser(splitUserId, splitUserName);
 
-        // Ο split user χρωστάει amountOwed στον payer
+        // The split user owes amountOwed to the payer
         // → payer balance +amountOwed, split user balance -amountOwed
         balance[payerId].amount += split.amountOwed;
         balance[splitUserId].amount -= split.amountOwed;
       }
     }
 
-    // --- 3. Αφαίρεσε τα settlements ---
+    // --- 3. Subtract settlements ---
     const settlements = await Settlement.find({ group: groupId })
       .populate('payer', 'name')
       .populate('payee', 'name');
@@ -56,23 +56,23 @@ const calculateDebts = async (req, res) => {
       ensureUser(payerId, s.payer.name);
       ensureUser(payeeId, s.payee.name);
 
-      // Ο payer πλήρωσε amount → balance του +amount, balance του payee -amount
+      // The payer paid amount -> their balance +amount, payee balance -amount
       balance[payerId].amount += s.amount;
       balance[payeeId].amount -= s.amount;
     }
 
     // --- 4. Minimize transactions (greedy) ---
-    // Χωρίζουμε σε creditors (πρέπει να πάρουν) και debtors (πρέπει να δώσουν)
+    // Split into creditors (need to receive) and debtors (need to pay)
     const creditors = []; // { id, name, amount }
     const debtors = [];   // { id, name, amount }
 
     for (const [id, { name, amount }] of Object.entries(balance)) {
       const rounded = Math.round(amount * 100) / 100;
       if (rounded > 0.01) creditors.push({ id, name, amount: rounded });
-      else if (rounded < -0.01) debtors.push({ id, name, amount: -rounded }); // θετικό
+      else if (rounded < -0.01) debtors.push({ id, name, amount: -rounded }); // positive
     }
 
-    // Ταξινόμηση φθίνουσα για καλύτερο matching
+    // Sort descending for better matching
     creditors.sort((a, b) => b.amount - a.amount);
     debtors.sort((a, b) => b.amount - a.amount);
 
@@ -87,8 +87,8 @@ const calculateDebts = async (req, res) => {
 
       if (rounded > 0.01) {
         transactions.push({
-          from: { id: debt.id, name: debt.name },   // ο χρεώστης
-          to: { id: credit.id, name: credit.name }, // ο δανειστής
+          from: { id: debt.id, name: debt.name },   // the debtor
+          to: { id: credit.id, name: credit.name }, // the creditor
           amount: rounded,
         });
       }
@@ -108,7 +108,7 @@ const calculateDebts = async (req, res) => {
 };
 
 /**
- * Καταγράφει ότι ο logged-in χρήστης εξόφλησε ένα ποσό σε κάποιον άλλον.
+ * Records that the logged-in user paid an amount to someone else.
  */
 const recordSettlement = async (req, res) => {
   try {
@@ -121,7 +121,7 @@ const recordSettlement = async (req, res) => {
 
     const settlement = await Settlement.create({
       group: groupId,
-      payer: req.user._id,   // ο logged-in χρήστης πλήρωσε
+      payer: req.user._id,   // the logged-in user paid
       payee: payeeId,
       amount: Math.round(Number(amount) * 100) / 100,
     });
@@ -138,7 +138,7 @@ const recordSettlement = async (req, res) => {
 };
 
 /**
- * Επιστρέφει ιστορικό settlements για ένα group.
+ * Returns settlement history for a group.
  */
 const getGroupSettlements = async (req, res) => {
   try {

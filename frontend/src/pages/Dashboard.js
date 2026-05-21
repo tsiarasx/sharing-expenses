@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, SplitSquareHorizontal, X, Plus } from 'lucide-react';
+import { Loader2, SplitSquareHorizontal, X } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { GroupContext } from '../context/GroupContext';
 import NotificationBell from './NotificationBell';

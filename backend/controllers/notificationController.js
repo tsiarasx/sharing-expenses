@@ -4,7 +4,7 @@ const getUserNotifications = async (req, res) => {
   try {
     const userId = req.user._id;
     
-    // Φέρνουμε μόνο τα μη διαβασμένα ή όλα (ταξινομημένα από το πιο πρόσφατο)
+    // Fetch only unread or all (sorted by most recent)
     const notifications = await Notification.find({ user: userId })
       .populate('relatedGroup', 'name')
       .sort({ createdAt: -1 });

@@ -7,7 +7,7 @@ const {
   addMemberToGroup
 } = require('../controllers/groupController');
 
-const { getGroupDashboard } = require('../controllers/dashboardController'); //Dimitra
+const { getGroupDashboard } = require('../controllers/dashboardController');
 
 const { protect } = require('../middleware/authMiddleware');
 
@@ -25,6 +25,6 @@ router.route('/:id')
 router.route('/:id/members')
   .post(addMemberToGroup);
 
-router.get('/:groupId/dashboard', getGroupDashboard); //Dimitra
+router.get('/:groupId/dashboard', getGroupDashboard);
 
 module.exports = router;

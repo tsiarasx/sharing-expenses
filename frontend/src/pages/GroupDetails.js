@@ -237,7 +237,7 @@ const GroupDetails = () => {
 
   // States for Expenses and Group Info
   const [members, setMembers] = useState([]);
-  const [groupName, setGroupName] = useState('');
+  const [groupName, setGroupName] = useState("");
 
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [description, setDescription] = useState('');
@@ -472,7 +472,7 @@ const GroupDetails = () => {
               {/* Page Header Area with Buttons Left of Member Tag */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{group?.name || groupName}</h1>
                 </div>
                 <div className="flex items-center gap-3">
                   <button 

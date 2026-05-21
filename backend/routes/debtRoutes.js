@@ -5,9 +5,9 @@ const { calculateDebts, recordSettlement, getGroupSettlements } = require('../co
 
 router.use(protect);
 
-// GET  /api/debts/:groupId           → υπολογισμός χρεών
-// POST /api/debts/:groupId/settle    → καταγραφή εξόφλησης
-// GET  /api/debts/:groupId/history   → ιστορικό settlements
+// GET  /api/debts/:groupId           → Calculate Debts
+// POST /api/debts/:groupId/settle    → Record Settlement
+// GET  /api/debts/:groupId/history   → History settlements
 router.get('/:groupId', calculateDebts);
 router.post('/:groupId/settle', recordSettlement);
 router.get('/:groupId/history', getGroupSettlements);
