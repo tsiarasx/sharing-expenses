@@ -34,6 +34,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+app.use('/api/users', require('./routes/userRoutes'));//Dimitra
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

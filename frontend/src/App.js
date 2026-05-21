@@ -7,6 +7,7 @@ import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import GroupDetails from './pages/GroupDetails';
 
+
 function App() {
   return (
     <div className="App font-sans text-gray-900 bg-gray-50 min-h-screen">

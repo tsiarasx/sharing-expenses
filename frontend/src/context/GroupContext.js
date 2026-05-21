@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AuthContext } from './AuthContext';
 import groupService from '../services/groupService';
 
+
 export const GroupContext = createContext();
 
 export const GroupProvider = ({ children }) => {
