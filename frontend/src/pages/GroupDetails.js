@@ -862,23 +862,28 @@ const GroupDetails = () => {
                     }),  
                   };  
   
-                  if (editingIndex !== null && editingId) {  
-                    await expenseService.updateExpense(editingId, expenseData);  
-                  } else {  
-                    await expenseService.createExpense(expenseData);  
-                  }  
-                   
-                  await loadGroupData();
-                  window.dispatchEvent(new CustomEvent('expense-updated'));
- 
-                  setEditingIndex(null);  
-                  setEditingId(null);  
-                  setDescription('');  
-                  setAmount('');  
-                  setDate('');  
-                  setPaidBy(members[0]?.id || '');  
-                  setSplitMethod('Equal Split');  
-                  setShowExpenseForm(false);  
+                  try {
+                    if (editingIndex !== null && editingId) {
+                      await expenseService.updateExpense(editingId, expenseData);
+                    } else {
+                      await expenseService.createExpense(expenseData);
+                    }
+
+                    await loadGroupData();
+                    window.dispatchEvent(new CustomEvent('expense-updated'));
+
+                    setEditingIndex(null);
+                    setEditingId(null);
+                    setDescription('');
+                    setAmount('');
+                    setDate('');
+                    setPaidBy(members[0]?.id || '');
+                    setSplitMethod('Equal Split');
+                    setShowExpenseForm(false);
+                  } catch (err) {
+                    const message = err?.response?.data?.message || 'Failed to save expense.';
+                    alert(message);
+                  }
                 }}  
                 className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800"  
               >  

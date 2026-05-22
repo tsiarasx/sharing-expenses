@@ -1,9 +1,14 @@
 const Expense = require('../models/Expense');
 const Group = require('../models/Group');
 const Notification = require('../models/Notification');
+const mongoose = require('mongoose');
 
 const createExpense = async (req, res) => {
   try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
     const {
   groupId,
   description,
@@ -17,8 +22,31 @@ const createExpense = async (req, res) => {
   splits,
 } = req.body;
 
-    if (!groupId || !description || !totalAmount || !payer || !splits) {
+    if (
+      !groupId ||
+      !description ||
+      !totalAmount ||
+      !payer ||
+      !Array.isArray(splits) ||
+      splits.length === 0
+    ) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(payer)) {
+      return res.status(400).json({ message: 'Invalid group or payer id' });
+    }
+
+    const hasInvalidSplit = splits.some(
+      (split) =>
+        !split ||
+        !mongoose.Types.ObjectId.isValid(split.user) ||
+        typeof split.amountOwed !== 'number' ||
+        Number.isNaN(split.amountOwed)
+    );
+
+    if (hasInvalidSplit) {
+      return res.status(400).json({ message: 'Invalid split data' });
     }
 
     const group = await Group.findById(groupId);
@@ -47,7 +75,10 @@ const createExpense = async (req, res) => {
   amountPerMember,
   customSplits,
   percentageSplits,
-  splits,
+  splits: splits.map((split) => ({
+    user: split.user,
+    amountOwed: split.amountOwed,
+  })),
 });
 
     const memberIds = group.members
@@ -72,6 +103,7 @@ const createExpense = async (req, res) => {
 
     res.status(201).json(expense);
   } catch (error) {
+    console.error('createExpense error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
