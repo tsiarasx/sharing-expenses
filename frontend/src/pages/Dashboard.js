@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, SplitSquareHorizontal, X, Plus } from 'lucide-react';
+import { Loader2, SplitSquareHorizontal, X, Plus, Trash2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { GroupContext } from '../context/GroupContext';
 import NotificationBell from './NotificationBell';
 
-// ---------------------------------------------------------------------------
-// Loading screen
-// ---------------------------------------------------------------------------
 const LoadingScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
     <div className="w-16 h-16 rounded-2xl bg-blue-800 flex items-center justify-center shadow-lg">
@@ -20,16 +17,13 @@ const LoadingScreen = () => (
   </div>
 );
 
-// ---------------------------------------------------------------------------
-// Dashboard
-// ---------------------------------------------------------------------------
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
-  const { groups, createGroup } = useContext(GroupContext);
+  // ── ΑΛΛΑΓΗ 1: προσθήκη deleteGroup ────────────────────────────────────────
+  const { groups, createGroup, deleteGroup } = useContext(GroupContext);
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -38,12 +32,10 @@ const Dashboard = () => {
     if (tab === 'groups' || tab === 'overview') setActiveTab(tab);
   }, [location]);
 
-  // ── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
 
-  // ── Dashboard data ─────────────────────────────────────────────────────────
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,7 +88,6 @@ const Dashboard = () => {
     if (user) fetchDashboardData();
   }, [user, fetchDashboardData]);
 
-  // ── Create Group modal ─────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -117,7 +108,6 @@ const Dashboard = () => {
     }
   };
 
-  // ── Guards ─────────────────────────────────────────────────────────────────
   if (isLoading) return <LoadingScreen />;
 
   if (error) {
@@ -131,10 +121,8 @@ const Dashboard = () => {
     );
   }
 
-  // ── Derived data ───────────────────────────────────────────────────────────
   const { groupBalances, expenses } = dashboardData;
 
-  /** Merge GroupContext list with API balance data so newly created groups appear instantly */
   const displayGroups = groups.map((ctxGroup) => {
     const apiBalance = groupBalances.find((gb) => gb.id === ctxGroup._id);
     return {
@@ -146,26 +134,21 @@ const Dashboard = () => {
     };
   });
 
-  /** Sum of positive balances → "You Are Owed" */
   const totalReceivable = groupBalances
     .filter((g) => g.balance > 0)
     .reduce((sum, g) => sum + g.balance, 0);
 
-  /** Sum of absolute negative balances → "You Owe" */
   const totalOwed = groupBalances
     .filter((g) => g.balance < 0)
     .reduce((sum, g) => sum + Math.abs(g.balance), 0);
 
-  /** Expenses newest → oldest for Recent Activity */
   const sortedExpenses = [...expenses].sort(
     (a, b) => new Date(b.date) - new Date(a.date)
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-gray-50/50">
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col pt-8">
         <div className="px-8 mb-12">
           <h1 className="text-2xl font-bold text-blue-800">SplitWise</h1>
@@ -215,14 +198,12 @@ const Dashboard = () => {
         <div className="p-4 border-t border-gray-200 mt-auto" />
       </div>
 
-      {/* ── Main Content ─────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Header */}
         <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10">
           <h2 className="text-xl font-semibold text-blue-800 capitalize">{activeTab}</h2>
           <div className="flex items-center gap-6">
-          <NotificationBell />
+            <NotificationBell />
             <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -232,16 +213,12 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* Content Body */}
         <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30">
 
-          {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <>
-              {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-6 mb-12">
 
-                {/* Total Spending — derived from totalReceivable + totalOwed */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
                   <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">Total Spending</h3>
                   <div className="text-3xl font-bold text-gray-900 mb-2">
@@ -262,7 +239,6 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* You Are Owed → totalReceivable from Code B */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
                   <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Are Owed</h3>
                   <div className="text-3xl font-bold text-green-600 mb-2">
@@ -278,7 +254,6 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* You Owe → totalOwed from Code B */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
                   <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">You Owe</h3>
                   <div className="text-3xl font-bold text-red-600 mb-4">
@@ -295,7 +270,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
                 <button className="text-blue-700 text-sm font-medium hover:text-blue-800">
@@ -332,12 +306,10 @@ const Dashboard = () => {
             </>
           )}
 
-          {/* ── GROUPS TAB ────────────────────────────────────────────────── */}
           {activeTab === 'groups' && (
             <>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Active Groups</h3>
-                {/* Opens Code B's modal */}
                 <button
                   onClick={() => setShowModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
@@ -352,7 +324,6 @@ const Dashboard = () => {
                 </button>
               </div>
 
-              {/* Groups List — powered by Code B's displayGroups */}
               <div className="space-y-4">
                 {displayGroups.length === 0 ? (
                   <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 shadow-sm">
@@ -393,15 +364,26 @@ const Dashboard = () => {
 
                       <div
                         className="flex items-center gap-4 border-l border-gray-200 pl-6"
-                        onClick={(e) => e.stopPropagation()} // prevent card navigation when clicking actions
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <button className="text-gray-400 hover:text-gray-600">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="8.5" cy="7" r="4" />
-                            <line x1="20" y1="8" x2="20" y2="14" />
-                            <line x1="23" y1="11" x2="17" y2="11" />
-                          </svg>
+                        {/* ── ΑΛΛΑΓΗ 2: χρήση deleteGroup από context ──────── */}
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                             console.log('group.id:', group.id); 
+                            const confirmed = window.confirm(
+                              `Are you sure you want to delete "${group.name}"? This cannot be undone.`
+                            );
+                            if (!confirmed) return;
+                            try {
+                              await deleteGroup(group.id);
+                              fetchDashboardData();
+                            } catch (err) {
+                              alert(`Could not delete group: ${err.message}`);
+                            }
+                          }}
+                        >
+                          <Trash2 size={18} className="text-red-500 hover:text-red-700 cursor-pointer" />
                         </button>
                         <button
                           onClick={() => navigate(`/groups/${group.id}`)}
@@ -423,7 +405,6 @@ const Dashboard = () => {
         </main>
       </div>
 
-      {/* ── Create Group Modal (Code B) ───────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">

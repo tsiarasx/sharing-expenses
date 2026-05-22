@@ -13,24 +13,21 @@ import {
   UserCircle,
   Loader2,
   ChevronLeft,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import expenseService from '../services/expenseService';
+import debtService from '../services/debtService';
 import { sendInvitation } from '../services/invitationService';
 import NotificationBell from './NotificationBell';
-import DebtSummary from './DebtSummary';
-// ─────────────────────────────────────────────
-// HELPER — Format a number as a Euro amount
-// ─────────────────────────────────────────────
+
 const formatEuro = (amount) =>
   new Intl.NumberFormat("de-DE", {
     style: "currency",
     currency: "EUR",
   }).format(Math.abs(amount));
 
-// ─────────────────────────────────────────────
-// HELPER — Safely extract a string ID
-// ─────────────────────────────────────────────
 const safeGetId = (obj) => {
   if (!obj) return "";
   if (obj._id) return obj._id.toString();
@@ -38,9 +35,6 @@ const safeGetId = (obj) => {
   return obj.toString();
 };
 
-// ─────────────────────────────────────────────
-// HELPER — Transform backend response
-// ─────────────────────────────────────────────
 const transformGroupData = (data) => {
   const groupDetails = data.groupDetails || {};
   const members = groupDetails.members || [];
@@ -54,8 +48,8 @@ const transformGroupData = (data) => {
   });
 
   debts.forEach((debt) => {
-    const debtorKey = safeGetId(debt.debtorId);
-    const creditorKey = safeGetId(debt.creditorId);
+    const debtorKey = safeGetId(debt.from?.id);
+    const creditorKey = safeGetId(debt.to?.id);
     if (debtorKey && debtorKey in balanceMap) balanceMap[debtorKey] -= debt.amount;
     if (creditorKey && creditorKey in balanceMap) balanceMap[creditorKey] += debt.amount;
   });
@@ -78,19 +72,16 @@ const transformGroupData = (data) => {
     }),
     debts: debts.map((d) => ({
       id: d._id || crypto.randomUUID(),
-      debtorId: d.debtorId,
-      debtorName: d.debtorName || "Unknown",
-      creditorId: d.creditorId,
-      creditorName: d.creditorName || "Unknown",
+      debtorId: d.from?.id,
+      debtorName: d.from?.name || "Unknown",
+      creditorId: d.to?.id,
+      creditorName: d.to?.name || "Unknown",
       amount: d.amount ?? 0,
       settled: d.settled ?? false,
     })),
   };
 };
 
-// ─────────────────────────────────────────────
-// SUB-COMPONENT — Stat card
-// ─────────────────────────────────────────────
 const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (
   <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow duration-200">
     <div className={`p-3 rounded-xl ${iconBg}`}>
@@ -103,11 +94,10 @@ const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (
   </div>
 );
 
-// ─────────────────────────────────────────────
-// SUB-COMPONENT — Member card
-// ─────────────────────────────────────────────
 const MemberCard = ({ member }) => {
-  const isPositive = member.balance >= 0;
+  const isPositive = member.balance > 0;
+  const isZero = member.balance === 0;
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center gap-3">
@@ -121,36 +111,37 @@ const MemberCard = ({ member }) => {
           <p className="text-xs text-gray-400 truncate">{member.email}</p>
         </div>
       </div>
-      <div
-        className={`flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold ${
-          isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
-        }`}
-      >
-        {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-        {isPositive ? "Gets back" : "Owes"} {formatEuro(member.balance)}
-      </div>
+      {isZero ? (
+        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+          <CheckCircle size={13} />
+          Settled up
+        </div>
+      ) : (
+        <div
+          className={`flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold ${
+            isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+          }`}
+        >
+          {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+          {isPositive ? "Gets back" : "Owes"} {formatEuro(member.balance)}
+        </div>
+      )}
     </div>
   );
 };
 
-// ─────────────────────────────────────────────
-// SUB-COMPONENT — Debt row
-// ─────────────────────────────────────────────
-const DebtRow = ({ debt, onSettle }) => {
+const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
   const [settling, setSettling] = useState(false);
-  const { user } = useContext(AuthContext);
+
+  const isParty =
+    currentUserId &&
+    (String(debt.debtorId) === String(currentUserId) ||
+      String(debt.creditorId) === String(currentUserId));
 
   const handleSettle = async () => {
     setSettling(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/debts/${debt.id}/settle`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-      });
-      if (!res.ok) throw new Error("Failed to settle debt");
+      await debtService.recordSettlement(groupId, debt.creditorId, debt.amount);
       onSettle(debt.id);
     } catch (err) {
       console.error("Settle error:", err.message);
@@ -196,22 +187,21 @@ const DebtRow = ({ debt, onSettle }) => {
           <Euro size={13} className="text-gray-400" />
           {formatEuro(debt.amount).replace("€", "")}
         </span>
-        <button
-          onClick={handleSettle}
-          disabled={settling}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {settling ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
-          {settling ? "Settling…" : "Settle Up"}
-        </button>
+        {isParty && (
+          <button
+            onClick={handleSettle}
+            disabled={settling}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {settling ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+            {settling ? "Settling…" : "Settle Up"}
+          </button>
+        )}
       </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────
-// LOADING SKELETON
-// ─────────────────────────────────────────────
 const LoadingSkeleton = () => (
   <div className="flex-1 overflow-y-auto p-10 animate-pulse">
     <div className="max-w-5xl mx-auto space-y-8">
@@ -227,18 +217,13 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-// ─────────────────────────────────────────────
-// MAIN COMPONENT — GroupDetails
-// ─────────────────────────────────────────────
 const GroupDetails = () => {
   const { id: groupId } = useParams();
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // States for Expenses and Group Info
   const [members, setMembers] = useState([]);
   const [groupName, setGroupName] = useState('');
-
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -251,13 +236,11 @@ const GroupDetails = () => {
   const [customSplits, setCustomSplits] = useState({});
   const [percentageSplits, setPercentageSplits] = useState({});
 
-  // States for Invitation
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // General Dashboard states
   const [group, setGroup] = useState(null);
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -268,26 +251,18 @@ const GroupDetails = () => {
       if (!groupId || !user?.token) return;
       try {
         const groupResponse = await fetch(`http://localhost:5000/api/groups/${groupId}`, {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
+          headers: { Authorization: `Bearer ${user.token}` },
         });
-
         const groupData = await groupResponse.json();
-
         setGroupName(groupData.name);
         const formattedMembers = groupData.members.map((member) => ({
           id: member.user._id,
           name: member.user.name,
         }));
-
         setMembers(formattedMembers);
+        if (formattedMembers.length > 0) setPaidBy(formattedMembers[0].id);
 
-        if (formattedMembers.length > 0) {
-          setPaidBy(formattedMembers[0].id);
-        }
         const data = await expenseService.getGroupExpenses(groupId);
-
         const formattedExpenses = data.map((expense) => ({
           _id: expense._id,
           description: expense.description,
@@ -300,39 +275,31 @@ const GroupDetails = () => {
           customSplits: expense.customSplits || null,
           percentageSplits: expense.percentageSplits || null,
         }));
-
         setExpenses(formattedExpenses);
       } catch (error) {
         console.error(error);
       }
     };
-
     fetchExpenses();
   }, [groupId, user?.token]);
 
-  // Handle Invitation Request
   const handleInviteAction = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!inviteEmail) return;
-
     try {
       setIsLoading(true);
       setInviteMessage('');
-      
       const res = await sendInvitation(groupId, inviteEmail);
-      
       setInviteMessage({ type: 'success', text: res.message });
       setInviteEmail('');
-      
       setTimeout(() => {
         setShowInviteModal(false);
         setInviteMessage('');
       }, 2000);
-      
     } catch (error) {
-      setInviteMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Failed to send invitation' 
+      setInviteMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Failed to send invitation',
       });
     } finally {
       setIsLoading(false);
@@ -344,16 +311,13 @@ const GroupDetails = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/groups/${groupId}/dashboard`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${user.token}`,
-            },
-          }
-        );
+        const res = await fetch(`http://localhost:5000/api/groups/${groupId}/dashboard`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+        });
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
           throw new Error(errBody.message || `Request failed: ${res.status}`);
@@ -369,7 +333,6 @@ const GroupDetails = () => {
         setLoading(false);
       }
     };
-
     if (groupId && user?.token) fetchGroup();
   }, [groupId, user?.token]);
 
@@ -377,19 +340,45 @@ const GroupDetails = () => {
     setDebts((prev) => prev.map((d) => (d.id === debtId ? { ...d, settled: true } : d)));
   };
 
+  const handleDeleteGroup = async () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${group?.name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/groups/${groupId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || "Failed to delete group");
+      }
+      navigate("/?tab=groups");
+    } catch (err) {
+      alert(`Could not delete group: ${err.message}`);
+    }
+  };
+
   const activeDebts = debts.filter((d) => !d.settled);
   const settledDebts = debts.filter((d) => d.settled);
+
+  const myBalance = group?.members.find(
+    (m) => String(m.id) === String(user?._id)
+  )?.balance ?? 0;
 
   return (
     <div className="flex h-screen bg-gray-50/50">
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      {/* Sidebar */}
       <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col pt-8">
         <div className="px-8 mb-12">
           <h1 className="text-2xl font-bold text-blue-800">SplitWise</h1>
           <p className="text-xs text-gray-600 mt-1">Manage shared expenses</p>
         </div>
-
         <nav className="flex-1 space-y-2 px-4">
           <Link
             to="/?tab=overview"
@@ -401,7 +390,6 @@ const GroupDetails = () => {
             </svg>
             <span className="font-medium text-sm">Overview</span>
           </Link>
-
           <Link
             to="/?tab=groups"
             className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative text-blue-700 bg-blue-50/50"
@@ -416,11 +404,10 @@ const GroupDetails = () => {
             <span className="font-medium text-sm">Groups</span>
           </Link>
         </nav>
-
         <div className="p-4 border-t border-gray-200 mt-auto" />
       </div>
 
-      {/* ── Main Content ─────────────────────────────────────────────────── */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}
@@ -438,7 +425,6 @@ const GroupDetails = () => {
               {loading ? "Loading…" : (group?.name ?? "Group Details")}
             </h2>
           </div>
-
           <div className="flex items-center gap-6">
             <NotificationBell />
             <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
@@ -450,7 +436,6 @@ const GroupDetails = () => {
           </div>
         </header>
 
-        {/* Content Body Layout Ternary Cascade */}
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
@@ -469,13 +454,14 @@ const GroupDetails = () => {
         ) : (
           <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30 space-y-10">
             <div className="max-w-5xl mx-auto space-y-8">
-              {/* Page Header Area with Buttons Left of Member Tag */}
+
+              {/* Page Header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button 
+                  <button
                     onClick={() => setShowInviteModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm"
                   >
@@ -486,15 +472,20 @@ const GroupDetails = () => {
                       <line x1="23" y1="11" x2="17" y2="11"></line>
                     </svg>
                     Invite Member
-                  </button> 
-
+                  </button>
                   <button
                     onClick={() => setShowExpenseForm(true)}
-                    className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm mr-1"
+                    className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm"
                   >
                     Add Expense
                   </button>
-
+                  <button
+                    onClick={handleDeleteGroup}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors shadow-sm"
+                  >
+                    <Trash2 size={16} />
+                    Delete Group
+                  </button>
                   <div className="hidden md:flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2 shadow-sm text-sm text-gray-500 font-medium">
                     <UserCircle size={16} className="text-indigo-400" />
                     {group.members.length} members
@@ -502,53 +493,29 @@ const GroupDetails = () => {
                 </div>
               </div>
 
-              {/* A. Stat Cards */}
+              {/* Stat Cards */}
               <section>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <StatCard
-                    icon={Receipt}
-                    label="Total Expenses"
-                    value={formatEuro(group.totalExpenses)}
-                    iconBg="bg-indigo-50"
-                    iconColor="text-indigo-500"
-                  />
+                  <StatCard icon={Receipt} label="Total Expenses" value={formatEuro(group.totalExpenses)} iconBg="bg-indigo-50" iconColor="text-indigo-500" />
                   <StatCard
                     icon={Wallet}
-                    label="Group Balance"
-                    value={formatEuro(group.totalBalance)}
-                    iconBg={group.totalBalance >= 0 ? "bg-emerald-50" : "bg-red-50"}
-                    iconColor={group.totalBalance >= 0 ? "text-emerald-500" : "text-red-500"}
+                    label="My Balance"
+                    value={formatEuro(myBalance)}
+                    iconBg={myBalance > 0 ? "bg-emerald-50" : myBalance < 0 ? "bg-red-50" : "bg-gray-100"}
+                    iconColor={myBalance > 0 ? "text-emerald-500" : myBalance < 0 ? "text-red-500" : "text-gray-400"}
                   />
-                  <StatCard
-                    icon={Users}
-                    label="Members"
-                    value={group.members.length}
-                    iconBg="bg-violet-50"
-                    iconColor="text-violet-500"
-                  />
-                  <StatCard
-                    icon={Clock}
-                    label="Pending Debts"
-                    value={activeDebts.length}
-                    iconBg="bg-amber-50"
-                    iconColor="text-amber-500"
-                  />
+                  <StatCard icon={Users} label="Members" value={group.members.length} iconBg="bg-violet-50" iconColor="text-violet-500" />
+                  <StatCard icon={Clock} label="Pending Debts" value={activeDebts.length} iconBg="bg-amber-50" iconColor="text-amber-500" />
                 </div>
               </section>
 
-              {/* B. Debt Summary */}
-              <DebtSummary groupId={groupId} />
-
-              {/* C. Members Grid */}
+              {/* Members Grid */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <Users size={18} className="text-indigo-500" />
                   <h2 className="text-lg font-bold text-gray-800">Members</h2>
-                  <span className="ml-auto text-xs text-gray-400 font-medium">
-                    {group.members.length} total
-                  </span>
+                  <span className="ml-auto text-xs text-gray-400 font-medium">{group.members.length} total</span>
                 </div>
-
                 {group.members.length === 0 ? (
                   <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
                     <Users size={40} className="text-gray-300 mx-auto mb-3" />
@@ -564,7 +531,7 @@ const GroupDetails = () => {
                 )}
               </section>
 
-              {/* D. Debt Relationships */}
+              {/* Debt Relationships */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <ArrowRight size={18} className="text-indigo-500" />
@@ -580,7 +547,6 @@ const GroupDetails = () => {
                     </span>
                   )}
                 </div>
-
                 {debts.length === 0 ? (
                   <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
                     <CheckCircle size={40} className="text-emerald-400 mx-auto mb-3" />
@@ -590,7 +556,13 @@ const GroupDetails = () => {
                 ) : (
                   <div className="space-y-3">
                     {[...activeDebts, ...settledDebts].map((debt) => (
-                      <DebtRow key={debt.id} debt={debt} onSettle={handleSettleDebt} />
+                      <DebtRow
+                        key={debt.id}
+                        debt={debt}
+                        onSettle={handleSettleDebt}
+                        groupId={groupId}
+                        currentUserId={user?._id}
+                      />
                     ))}
                   </div>
                 )}
@@ -604,14 +576,65 @@ const GroupDetails = () => {
         )}
       </div>
 
-      {/* MODAL: Expense Form Input */}
+      {/* MODAL: Expense Form — with Expense History at top */}
       {showExpenseForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+
+            {/* Expense History */}
+            {expenses.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <Receipt size={16} className="text-indigo-500" />
+                  Expense History
+                  <span className="ml-auto text-xs text-gray-400 font-medium">{expenses.length} total</span>
+                </h3>
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {expenses.map((expense, index) => (
+                    <div
+                      key={expense._id || index}
+                      className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{expense.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {expense.date && <span>{expense.date} · </span>}
+                          Paid by <span className="font-medium text-gray-600">{expense.paidByName}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-sm font-bold text-gray-700">{formatEuro(expense.amount)}</span>
+                        <button
+                          onClick={() => {
+                            setDescription(expense.description);
+                            setAmount(String(expense.amount));
+                            setDate(expense.date || '');
+                            setPaidBy(expense.paidBy || members[0]?.id || '');
+                            setSplitMethod(expense.splitMethod || 'Equal Split');
+                            setCustomSplits(expense.customSplits || {});
+                            setPercentageSplits(expense.percentageSplits || {});
+                            setEditingIndex(index);
+                            setEditingId(expense._id);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 text-xs font-semibold rounded-lg hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-colors"
+                        >
+                          <Pencil size={11} />
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-200 mt-4 mb-2" />
+              </div>
+            )}
+
+            {/* Form heading */}
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               {editingIndex !== null ? 'Edit Expense' : 'Add Expense'}
             </h3>
 
+            {/* Form fields */}
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
@@ -623,7 +646,6 @@ const GroupDetails = () => {
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
                 <input
@@ -634,7 +656,6 @@ const GroupDetails = () => {
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input
@@ -644,7 +665,6 @@ const GroupDetails = () => {
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Paid By</label>
                 <select
@@ -653,13 +673,10 @@ const GroupDetails = () => {
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
+                    <option key={member.id} value={member.id}>{member.name}</option>
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Split Method</label>
                 <select
@@ -695,30 +712,20 @@ const GroupDetails = () => {
                         type="number"
                         placeholder="0.00"
                         value={customSplits[member.name] || ''}
-                        onChange={(e) =>
-                          setCustomSplits({
-                            ...customSplits,
-                            [member.name]: e.target.value,
-                          })
-                        }
+                        onChange={(e) => setCustomSplits({ ...customSplits, [member.name]: e.target.value })}
                         className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-4 border-t border-gray-200 pt-3">
                   <p className="text-sm text-gray-600">
-                    Total assigned: €
-                    {Object.values(customSplits)
-                      .reduce((sum, val) => sum + Number(val || 0), 0)
-                      .toFixed(2)}
+                    Total assigned: €{Object.values(customSplits).reduce((sum, val) => sum + Number(val || 0), 0).toFixed(2)}
                   </p>
                   <p className="text-sm text-gray-600">Expense total: €{Number(amount || 0).toFixed(2)}</p>
-                  {amount &&
-                    Object.values(customSplits).reduce((sum, val) => sum + Number(val || 0), 0) !== Number(amount) && (
-                      <p className="text-sm text-red-600 mt-2">The exact amounts must add up to the total expense.</p>
-                    )}
+                  {amount && Object.values(customSplits).reduce((sum, val) => sum + Number(val || 0), 0) !== Number(amount) && (
+                    <p className="text-sm text-red-600 mt-2">The exact amounts must add up to the total expense.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -735,12 +742,7 @@ const GroupDetails = () => {
                           type="number"
                           placeholder="0"
                           value={percentageSplits[member.name] || ''}
-                          onChange={(e) =>
-                            setPercentageSplits({
-                              ...percentageSplits,
-                              [member.name]: e.target.value,
-                            })
-                          }
+                          onChange={(e) => setPercentageSplits({ ...percentageSplits, [member.name]: e.target.value })}
                           className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-500">%</span>
@@ -748,13 +750,11 @@ const GroupDetails = () => {
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-4 border-t border-gray-200 pt-3">
                   <div className="space-y-1 mb-3">
                     {members.map((member) => (
                       <p key={member.id} className="text-sm text-gray-600">
-                        {member.name} owes: €
-                        {((Number(amount || 0) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2)}
+                        {member.name} owes: €{((Number(amount || 0) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2)}
                       </p>
                     ))}
                   </div>
@@ -770,7 +770,11 @@ const GroupDetails = () => {
 
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
               <button
-                onClick={() => setShowExpenseForm(false)}
+                onClick={() => {
+                  setShowExpenseForm(false);
+                  setEditingIndex(null);
+                  setEditingId(null);
+                }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
               >
                 Cancel
@@ -801,7 +805,7 @@ const GroupDetails = () => {
                   }
 
                   const expenseData = {
-                    groupId: groupId,
+                    groupId,
                     description,
                     totalAmount: Number(amount),
                     date,
@@ -811,19 +815,16 @@ const GroupDetails = () => {
                     customSplits: splitMethod === 'Exact Amounts' ? customSplits : null,
                     percentageSplits: splitMethod === 'Percentages' ? percentageSplits : null,
                     splits: members.map((member) => {
-                              let amountOwed = 0;
-                              if (splitMethod === 'Equal Split') {
-                                amountOwed = Number((Number(amount) / members.length).toFixed(2));
-                              } else if (splitMethod === 'Exact Amounts') {
-                                amountOwed = Number(customSplits[member.name] || 0);
-                              } else if (splitMethod === 'Percentages') {
-                                amountOwed = Number(((Number(amount) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2));
-                              }
-                              return {
-                                user: member.id,
-                                amountOwed,
-                              };
-                            }),
+                      let amountOwed = 0;
+                      if (splitMethod === 'Equal Split') {
+                        amountOwed = Number((Number(amount) / members.length).toFixed(2));
+                      } else if (splitMethod === 'Exact Amounts') {
+                        amountOwed = Number(customSplits[member.name] || 0);
+                      } else if (splitMethod === 'Percentages') {
+                        amountOwed = Number(((Number(amount) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2));
+                      }
+                      return { user: member.id, amountOwed };
+                    }),
                   };
 
                   if (editingIndex !== null && editingId) {
@@ -872,43 +873,39 @@ const GroupDetails = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Invite Member to Group</h3>
-            
             {inviteMessage && (
               <div className={`mb-4 p-3 rounded text-sm ${inviteMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {inviteMessage.text}
               </div>
             )}
-
-            <div className="invite-form-container">
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">User Email</label>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="friend@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleInviteAction}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? 'Sending...' : 'Send Invite'}
-                </button>
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">User Email</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="friend@example.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleInviteAction}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50"
+              >
+                {isLoading ? 'Sending...' : 'Send Invite'}
+              </button>
             </div>
           </div>
         </div>
