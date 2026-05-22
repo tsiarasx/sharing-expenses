@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const User = require('../models/User');
+const Expense = require('../models/Expense');
+const Settlement = require('../models/Settlement');
+const Notification = require('../models/Notification');
 
 // @desc    Create a new group
 // @route   POST /api/groups
@@ -23,10 +26,12 @@ const createGroup = async (req, res) => {
       ]
     });
 
-    const populatedGroup = await Group.findById(group._id).populate('members.user', 'name email');
+    const populatedGroup = await Group.findById(group._id)
+      .populate('members.user', 'name email');
 
     res.status(201).json(populatedGroup);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -36,12 +41,18 @@ const createGroup = async (req, res) => {
 // @access  Private
 const getGroups = async (req, res) => {
   try {
-    const groups = await Group.find({ //changes so users dont automatically get accepted into groups they are invited to
-    members: { $elemMatch: { user: req.user._id, status: 'accepted' } } 
-});
+    const groups = await Group.find({
+      members: {
+        $elemMatch: {
+          user: req.user._id,
+          status: 'accepted'
+        }
+      }
+    });
 
     res.json(groups);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -53,8 +64,10 @@ const getGroupById = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(400).json({ message: 'Invalid group ID' });
   }
+
   try {
-    const group = await Group.findById(req.params.id).populate('members.user', 'name email');
+    const group = await Group.findById(req.params.id)
+      .populate('members.user', 'name email');
 
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
@@ -71,6 +84,7 @@ const getGroupById = async (req, res) => {
 
     res.json(group);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -82,8 +96,10 @@ const addMemberToGroup = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(400).json({ message: 'Invalid group ID' });
   }
+
   try {
     const { email } = req.body;
+
     const group = await Group.findById(req.params.id);
 
     if (!group) {
@@ -96,7 +112,9 @@ const addMemberToGroup = async (req, res) => {
     );
 
     if (!isMember) {
-      return res.status(403).json({ message: 'Not authorized to add members to this group' });
+      return res.status(403).json({
+        message: 'Not authorized to add members to this group'
+      });
     }
 
     // Find the user by email
@@ -112,7 +130,9 @@ const addMemberToGroup = async (req, res) => {
     );
 
     if (alreadyMember) {
-      return res.status(400).json({ message: 'User is already a member of this group' });
+      return res.status(400).json({
+        message: 'User is already a member of this group'
+      });
     }
 
     // Add the user to the group
@@ -123,10 +143,55 @@ const addMemberToGroup = async (req, res) => {
 
     await group.save();
 
-    const populatedGroup = await Group.findById(group._id).populate('members.user', 'name email');
+    const populatedGroup = await Group.findById(group._id)
+      .populate('members.user', 'name email');
 
     res.json(populatedGroup);
+
   } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Delete group
+// @route   DELETE /api/groups/:id
+// @access  Private
+const deleteGroup = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid group ID' });
+  }
+
+  try {
+    const group = await Group.findById(req.params.id);
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Check if user is a member
+    const isMember = group.members.some(
+      member => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: 'Not authorized to delete this group'
+      });
+    }
+
+    // Delete related data
+    await Expense.deleteMany({ group: group._id });
+    await Settlement.deleteMany({ group: group._id });
+    await Notification.deleteMany({ relatedGroup: group._id });
+
+    // Delete group
+    await group.deleteOne();
+
+    res.json({ message: 'Group deleted successfully' });
+
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -135,5 +200,6 @@ module.exports = {
   createGroup,
   getGroups,
   getGroupById,
-  addMemberToGroup
+  addMemberToGroup,
+  deleteGroup
 };
