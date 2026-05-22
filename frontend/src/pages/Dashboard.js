@@ -19,7 +19,6 @@ const LoadingScreen = () => (
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
-  // ── ΑΛΛΑΓΗ 1: προσθήκη deleteGroup ────────────────────────────────────────
   const { groups, createGroup, deleteGroup } = useContext(GroupContext);
   const location = useLocation();
   const navigate = useNavigate();
@@ -87,6 +86,14 @@ const Dashboard = () => {
   useEffect(() => {
     if (user) fetchDashboardData();
   }, [user, fetchDashboardData]);
+
+  // ✅ ΑΛΛΑΓΗ: Ακούμε το custom event "debt-settled" από το GroupDetails
+  // και κάνουμε re-fetch τα δεδομένα του dashboard αυτόματα
+  useEffect(() => {
+    const handler = () => fetchDashboardData();
+    window.addEventListener('debt-settled', handler);
+    return () => window.removeEventListener('debt-settled', handler);
+  }, [fetchDashboardData]);
 
   const [showModal, setShowModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -366,11 +373,10 @@ const Dashboard = () => {
                         className="flex items-center gap-4 border-l border-gray-200 pl-6"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {/* ── ΑΛΛΑΓΗ 2: χρήση deleteGroup από context ──────── */}
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
-                             console.log('group.id:', group.id); 
+                            console.log('group.id:', group.id); 
                             const confirmed = window.confirm(
                               `Are you sure you want to delete "${group.name}"? This cannot be undone.`
                             );

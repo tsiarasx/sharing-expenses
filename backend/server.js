@@ -36,7 +36,7 @@ app.use('/api/invitations', invitationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/debts', debtRoutes);
 
-app.use('/api/users', require('./routes/userRoutes'));//Dimitra
+app.use('/api/users', require('./routes/userRoutes'));
 
 const PORT = process.env.PORT || 5000;
 
