@@ -338,20 +338,16 @@ const GroupDetails = () => {
   useEffect(() => {  
     loadGroupData();
 
-    // Keep group debts/expenses fresh for other members without manual reload.
-    const intervalId = setInterval(loadGroupData, 15000);
-    const handleFocus = () => loadGroupData();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') loadGroupData();
-    };
+    // Event-driven only: no periodic polling.
+    const handleExpenseUpdated = () => loadGroupData();
+    const handleDebtSettled = () => loadGroupData();
 
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('expense-updated', handleExpenseUpdated);
+    window.addEventListener('debt-settled', handleDebtSettled);
 
     return () => {
-      clearInterval(intervalId);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('expense-updated', handleExpenseUpdated);
+      window.removeEventListener('debt-settled', handleDebtSettled);
     };
   }, [loadGroupData]);  
   
