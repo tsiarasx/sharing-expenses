@@ -1,5 +1,9 @@
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const Group = require('../models/Group');
+const Expense = require('../models/Expense');
+const Settlement = require('../models/Settlement');
+const Notification = require('../models/Notification');
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -109,6 +113,27 @@ const deleteUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (user) {
+      const userId = user._id;
+
+      // Remove this user from every group's membership list.
+      await Group.updateMany(
+        { 'members.user': userId },
+        { $pull: { members: { user: userId } } }
+      );
+
+      // Remove expenses that contain the deleted user as payer or participant.
+      await Expense.deleteMany({
+        $or: [{ payer: userId }, { 'splits.user': userId }],
+      });
+
+      // Remove settlements involving the deleted user.
+      await Settlement.deleteMany({
+        $or: [{ payer: userId }, { payee: userId }],
+      });
+
+      // Remove user-targeted notifications.
+      await Notification.deleteMany({ user: userId });
+
       await user.deleteOne();
       res.json({ message: 'User removed' });
     } else {

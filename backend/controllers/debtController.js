@@ -29,11 +29,13 @@ const calculateDebts = async (req, res) => {
     };
 
     for (const expense of expenses) {
+      if (!expense.payer?._id) continue;
       const payerId = expense.payer._id.toString();
       const payerName = expense.payer.name;
       ensureUser(payerId, payerName);
 
       for (const split of expense.splits) {
+        if (!split.user?._id) continue;
         const splitUserId = split.user._id.toString();
         const splitUserName = split.user.name;
         ensureUser(splitUserId, splitUserName);
@@ -51,6 +53,7 @@ const calculateDebts = async (req, res) => {
       .populate('payee', 'name');
 
     for (const s of settlements) {
+      if (!s.payer?._id || !s.payee?._id) continue;
       const payerId = s.payer._id.toString();
       const payeeId = s.payee._id.toString();
       ensureUser(payerId, s.payer.name);

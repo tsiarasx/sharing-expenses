@@ -67,6 +67,7 @@ const transformGroupData = (data, realDebts) => {
         id,  
         name: m.name || "Unknown Member",  
         email: m.email || "",  
+        status: m.status || 'accepted',
         balance: balanceMap[id] ?? 0,  
       };  
     }),  
@@ -95,6 +96,7 @@ const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (
 );  
   
 const MemberCard = ({ member }) => {  
+  const isInvited = member.status === 'invited';
   const isZero = Math.abs(member.balance) < 0.01;  
   const isPositive = member.balance > 0.01;  
   
@@ -111,7 +113,12 @@ const MemberCard = ({ member }) => {
           <p className="text-xs text-gray-400 truncate">{member.email}</p>  
         </div>  
       </div>  
-      {isZero ? (  
+      {isInvited ? (
+        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600">
+          <Clock size={13} />
+          Invited
+        </div>
+      ) : isZero ? (  
         <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">  
           <CheckCircle size={13} />  
           Settled up  
@@ -493,7 +500,7 @@ const GroupDetails = () => {
                     onClick={() => { 
                       setEditingIndex(null); 
                       setEditingId(null); 
-                      setDescription(groupName || group?.name || ''); 
+                      setDescription(''); 
                       setAmount(''); 
                       setDate(''); 
                       setPaidBy(members[0]?.id || ''); 
