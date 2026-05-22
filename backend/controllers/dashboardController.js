@@ -89,9 +89,15 @@ const getUserDashboard = async (req, res) => {
     }));
 
     // ── A. totalSpending ──────────────────────────────
-    const totalSpending = expenses
-      .filter((e) => e.payer._id.toString() === userId.toString())
-      .reduce((sum, e) => sum + e.totalAmount, 0);
+    // User spending = sum of user's owed share in every involved expense,
+    // including own share in expenses paid by the user.
+    // This is independent from settlements.
+    const totalSpending = expenses.reduce((sum, e) => {
+      const userSplit = e.splits.find(
+        (s) => s.user._id.toString() === userId.toString()
+      );
+      return sum + (userSplit ? userSplit.amountOwed : 0);
+    }, 0);
 
     // ── B. youAreOwed ─────────────────────────────────
     // Υπολογίζεται από τα groupBalances (μετά settlements) για συνέπεια
