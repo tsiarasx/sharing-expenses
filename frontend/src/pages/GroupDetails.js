@@ -13,7 +13,6 @@ import {
   UserCircle,  
   Loader2,  
   ChevronLeft,  
-  Pencil,  
 } from "lucide-react";  
 import { AuthContext } from "../context/AuthContext";  
 import expenseService from '../services/expenseService';  
@@ -68,6 +67,7 @@ const transformGroupData = (data, realDebts) => {
         id,  
         name: m.name || "Unknown Member",  
         email: m.email || "",  
+        status: m.status || 'accepted',
         balance: balanceMap[id] ?? 0,  
       };  
     }),  
@@ -96,6 +96,7 @@ const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (
 );  
   
 const MemberCard = ({ member }) => {  
+  const isInvited = member.status === 'invited';
   const isZero = Math.abs(member.balance) < 0.01;  
   const isPositive = member.balance > 0.01;  
   
@@ -112,7 +113,12 @@ const MemberCard = ({ member }) => {
           <p className="text-xs text-gray-400 truncate">{member.email}</p>  
         </div>  
       </div>  
-      {isZero ? (  
+      {isInvited ? (
+        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600">
+          <Clock size={13} />
+          Invited
+        </div>
+      ) : isZero ? (  
         <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">  
           <CheckCircle size={13} />  
           Settled up  
@@ -245,7 +251,7 @@ const GroupDetails = () => {
   const [debts, setDebts] = useState([]);  
   const [loading, setLoading] = useState(true);  
   const [error, setError] = useState(null);  
-  
+
   const fetchExpenses = useCallback(async () => {  
     if (!groupId || !user?.token) return;  
     try {  
@@ -254,12 +260,18 @@ const GroupDetails = () => {
       });  
       const groupData = await groupResponse.json();  
       setGroupName(groupData.name);  
-      const formattedMembers = groupData.members.map((member) => ({  
+      const acceptedMembers = (groupData.members || []).filter(
+        (member) => member.status === 'accepted' && member.user
+      );
+
+      const formattedMembers = acceptedMembers.map((member) => ({  
         id: member.user._id,  
         name: member.user.name,  
       }));  
       setMembers(formattedMembers);  
-      if (formattedMembers.length > 0) setPaidBy(formattedMembers[0].id);  
+      if (formattedMembers.length > 0) {
+        setPaidBy((prevPaidBy) => prevPaidBy || formattedMembers[0].id);
+      }
   
       const data = await expenseService.getGroupExpenses(groupId);  
       const formattedExpenses = data.map((expense) => ({  
@@ -318,11 +330,26 @@ const GroupDetails = () => {
       setLoading(false);  
     }  
   }, [groupId, user?.token]); 
+
+  const loadGroupData = useCallback(async () => {
+    await Promise.all([fetchExpenses(), fetchGroup()]);
+  }, [fetchExpenses, fetchGroup]);
  
   useEffect(() => {  
-    fetchExpenses();  
-    fetchGroup();  
-  }, [fetchExpenses, fetchGroup]);  
+    loadGroupData();
+
+    // Event-driven only: no periodic polling.
+    const handleExpenseUpdated = () => loadGroupData();
+    const handleDebtSettled = () => loadGroupData();
+
+    window.addEventListener('expense-updated', handleExpenseUpdated);
+    window.addEventListener('debt-settled', handleDebtSettled);
+
+    return () => {
+      window.removeEventListener('expense-updated', handleExpenseUpdated);
+      window.removeEventListener('debt-settled', handleDebtSettled);
+    };
+  }, [loadGroupData]);  
   
   const handleInviteAction = async (e) => {  
     if (e && e.preventDefault) e.preventDefault();  
@@ -469,7 +496,7 @@ const GroupDetails = () => {
                     onClick={() => { 
                       setEditingIndex(null); 
                       setEditingId(null); 
-                      setDescription(groupName || group?.name || ''); 
+                      setDescription(''); 
                       setAmount(''); 
                       setDate(''); 
                       setPaidBy(members[0]?.id || ''); 
@@ -563,6 +590,68 @@ const GroupDetails = () => {
                   </div>  
                 )}  
               </section>  
+
+              {/* Expense History */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Receipt size={18} className="text-indigo-500" />
+                  <h2 className="text-lg font-bold text-gray-800">Expense History</h2>
+                  <span className="ml-auto text-xs text-gray-400 font-medium">{expenses.length} total</span>
+                </div>
+
+                {expenses.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+                    <Receipt size={40} className="text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-600 font-semibold">No expenses yet</p>
+                    <p className="text-gray-400 text-sm mt-1">Add the first expense for this group.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {expenses.map((expense, index) => (
+                      <div
+                        key={expense._id || index}
+                        className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow duration-200"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-800 truncate">{expense.description}</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-gray-500">
+                              {expense.date && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
+                                  {expense.date}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                                Paid by {expense.paidByName}
+                              </span>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-violet-50 text-violet-600 font-semibold">
+                                {expense.splitMethod || 'Equal Split'}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-sm font-bold text-gray-700 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 whitespace-nowrap">
+                            {formatEuro(expense.amount)}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          {expense.splits && expense.splits.length > 0 && (
+                            <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                              <p className="font-semibold text-gray-700 mb-2">Splits</p>
+                              {expense.splits.map((split, i) => (
+                                <div key={i} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-b-0">
+                                  <span className="font-medium text-gray-700">{split.user?.name || 'Unknown'}</span>
+                                  <span className="font-semibold text-gray-600">{formatEuro(split.amountOwed)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
   
               <p className="text-center text-xs text-gray-300 pt-4 pb-4">  
                 GroupDetails · Expense Sharing Platform  
@@ -576,65 +665,7 @@ const GroupDetails = () => {
       {showExpenseForm && (  
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">  
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">  
-  
-            {expenses.length > 0 && (  
-              <div className="mb-6">  
-                <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">  
-                  <Receipt size={16} className="text-indigo-500" />  
-                  Expense History  
-                  <span className="ml-auto text-xs text-gray-400 font-medium">{expenses.length} total</span>  
-                </h3>  
-                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">  
-                  {expenses.map((expense, index) => (  
-                    <div  
-                      key={expense._id || index}  
-                      className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors"  
-                    >  
-                      <div className="min-w-0 flex-1">  
-                        <p className="text-sm font-semibold text-gray-800 truncate">{expense.description}</p>  
-                        <p className="text-xs text-gray-400 mt-0.5 mb-2">  
-                          {expense.date && <span>{expense.date} · </span>}  
-                          Paid by <span className="font-medium text-gray-600">{expense.paidByName}</span>  
-                        </p>  
-                        {expense.splits && expense.splits.length > 0 && ( 
-                          <div className="text-xs text-gray-500 bg-white p-2 rounded border border-gray-100"> 
-                            <p className="font-semibold text-gray-600 mb-1">Splits:</p> 
-                            {expense.splits.map((split, i) => ( 
-                              <div key={i} className="flex justify-between"> 
-                                <span>{split.user?.name || 'Unknown'}</span> 
-                                <span>{formatEuro(split.amountOwed)}</span> 
-                              </div> 
-                            ))} 
-                          </div> 
-                        )} 
-                      </div> 
-                      <div className="flex items-center gap-3 flex-shrink-0">  
-                        <span className="text-sm font-bold text-gray-700">{formatEuro(expense.amount)}</span>  
-                        <button  
-                          onClick={() => {  
-                            setDescription(expense.description);  
-                            setAmount(String(expense.amount));  
-                            setDate(expense.date || '');  
-                            setPaidBy(expense.paidBy || members[0]?.id || '');  
-                            setSplitMethod(expense.splitMethod || 'Equal Split');  
-                            setCustomSplits(expense.customSplits || {});  
-                            setPercentageSplits(expense.percentageSplits || {});  
-                            setEditingIndex(index);  
-                            setEditingId(expense._id);  
-                          }}  
-                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 text-xs font-semibold rounded-lg hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-colors"  
-                        >  
-                          <Pencil size={11} />  
-                          Edit  
-                        </button>  
-                      </div>  
-                    </div>  
-                  ))}  
-                </div>  
-                <div className="border-t border-gray-200 mt-4 mb-2" />  
-              </div>  
-            )}  
-  
+
             <h3 className="text-xl font-bold text-gray-900 mb-4">  
               {editingIndex !== null ? 'Edit Expense' : 'Add Expense'}  
             </h3>  
@@ -837,8 +868,8 @@ const GroupDetails = () => {
                     await expenseService.createExpense(expenseData);  
                   }  
                    
-                  await fetchExpenses(); 
-                  await fetchGroup(); 
+                  await loadGroupData();
+                  window.dispatchEvent(new CustomEvent('expense-updated'));
  
                   setEditingIndex(null);  
                   setEditingId(null);  

@@ -1,4 +1,6 @@
 const Expense = require('../models/Expense');
+const Group = require('../models/Group');
+const Notification = require('../models/Notification');
 
 const createExpense = async (req, res) => {
   try {
@@ -19,6 +21,22 @@ const createExpense = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const isAcceptedMember = group.members.some(
+      (member) =>
+        member.status === 'accepted' &&
+        member.user &&
+        member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isAcceptedMember) {
+      return res.status(403).json({ message: 'Not authorized to add expenses in this group' });
+    }
+
     const expense = await Expense.create({
   group: groupId,
   description,
@@ -31,6 +49,26 @@ const createExpense = async (req, res) => {
   percentageSplits,
   splits,
 });
+
+    const memberIds = group.members
+      .filter(
+        (member) =>
+          member.status === 'accepted' &&
+          member.user &&
+          member.user.toString() !== req.user._id.toString()
+      )
+      .map((member) => member.user);
+
+    if (memberIds.length > 0) {
+      await Notification.insertMany(
+        memberIds.map((memberId) => ({
+          user: memberId,
+          message: `New expense added in ${group.name}: ${description}`,
+          type: 'expense_added',
+          relatedGroup: group._id,
+        }))
+      );
+    }
 
     res.status(201).json(expense);
   } catch (error) {

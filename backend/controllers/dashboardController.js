@@ -36,18 +36,19 @@ const getUserDashboard = async (req, res) => {
         groupMap[gid] = { groupId: gid, groupName: expense.group.name, balance: 0 };
       }
 
-      const isPayer = expense.payer._id.toString() === userId.toString();
+      const payerId = expense.payer?._id?.toString();
+      const isPayer = payerId === userId.toString();
 
       if (isPayer) {
         // Credit: sum of what others owe this user in this expense
         const othersShare = expense.splits
-          .filter((s) => s.user._id.toString() !== userId.toString())
+          .filter((s) => s.user?._id && s.user._id.toString() !== userId.toString())
           .reduce((s, split) => s + split.amountOwed, 0);
         groupMap[gid].balance += othersShare;
       } else {
         // Debit: what this user owes the payer
         const userSplit = expense.splits.find(
-          (s) => s.user._id.toString() === userId.toString()
+          (s) => s.user?._id && s.user._id.toString() === userId.toString()
         );
         if (userSplit) groupMap[gid].balance -= userSplit.amountOwed;
       }
@@ -70,7 +71,7 @@ const getUserDashboard = async (req, res) => {
         const gid = s.group.toString();
         if (!groupMap[gid]) continue;
 
-        const isSettlementPayer = s.payer._id.toString() === userId.toString();
+        const isSettlementPayer = s.payer?._id?.toString() === userId.toString();
 
         if (isSettlementPayer) {
           // Εγώ πλήρωσα → το χρέος μου μειώθηκε → balance αυξάνεται (λιγότερο αρνητικό)
@@ -89,9 +90,15 @@ const getUserDashboard = async (req, res) => {
     }));
 
     // ── A. totalSpending ──────────────────────────────
-    const totalSpending = expenses
-      .filter((e) => e.payer._id.toString() === userId.toString())
-      .reduce((sum, e) => sum + e.totalAmount, 0);
+    // User spending = sum of user's owed share in every involved expense,
+    // including own share in expenses paid by the user.
+    // This is independent from settlements.
+    const totalSpending = expenses.reduce((sum, e) => {
+      const userSplit = e.splits.find(
+        (s) => s.user?._id && s.user._id.toString() === userId.toString()
+      );
+      return sum + (userSplit ? userSplit.amountOwed : 0);
+    }, 0);
 
     // ── B. youAreOwed ─────────────────────────────────
     // Υπολογίζεται από τα groupBalances (μετά settlements) για συνέπεια
@@ -108,14 +115,17 @@ const getUserDashboard = async (req, res) => {
     // ── E. recentActivity ─────────────────────────────
     const recentActivity = expenses.slice(0, 10).map((e) => {
       const userSplit = e.splits.find(
-        (s) => s.user._id.toString() === userId.toString()
+        (s) => s.user?._id && s.user._id.toString() === userId.toString()
       );
       return {
         expenseId: e._id,
         groupName: e.group ? e.group.name : null,
         description: e.description,
         totalAmount: e.totalAmount,
-        payer: { id: e.payer._id, name: e.payer.name },
+        payer: {
+          id: e.payer?._id || null,
+          name: e.payer?.name || 'Deleted user',
+        },
         yourShare: userSplit ? userSplit.amountOwed : 0,
         createdAt: e.createdAt,
       };
@@ -160,12 +170,14 @@ const getGroupDashboard = async (req, res) => {
     const groupDetails = {
       groupId: group._id,
       name: group.name,
-      members: group.members.map((m) => ({
-        userId: m.user._id,
-        name: m.user.name,
-        email: m.user.email,
-        status: m.status,
-      })),
+      members: group.members
+        .filter((m) => m.user)
+        .map((m) => ({
+          userId: m.user._id,
+          name: m.user.name,
+          email: m.user.email,
+          status: m.status,
+        })),
     };
 
     // ── B. totalGroupExpenses ─────────────────────────
@@ -186,8 +198,10 @@ const getGroupDashboard = async (req, res) => {
     };
 
     for (const expense of expenses) {
+      if (!expense.payer?._id) continue;
       upsert(expense.payer._id, expense.payer.name, expense.totalAmount);
       for (const split of expense.splits) {
+        if (!split.user?._id) continue;
         upsert(split.user._id, split.user.name, -split.amountOwed);
       }
     }

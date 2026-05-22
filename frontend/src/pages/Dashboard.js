@@ -50,9 +50,10 @@ const Dashboard = () => {
       const json = await res.json();
       if (!json.success) throw new Error('Failed to load dashboard data.');
 
-      const { groupBalances, recentActivity } = json.data;
+      const { totalSpending, groupBalances, recentActivity } = json.data;
 
       setDashboardData({
+        totalSpending: totalSpending ?? 0,
         groupBalances: groupBalances.map((g) => ({
           id: g.groupId,
           groupName: g.groupName,
@@ -87,12 +88,15 @@ const Dashboard = () => {
     if (user) fetchDashboardData();
   }, [user, fetchDashboardData]);
 
-  // ✅ ΑΛΛΑΓΗ: Ακούμε το custom event "debt-settled" από το GroupDetails
-  // και κάνουμε re-fetch τα δεδομένα του dashboard αυτόματα
+  // Refresh dashboard stats after debt settlements or expense updates from GroupDetails.
   useEffect(() => {
     const handler = () => fetchDashboardData();
     window.addEventListener('debt-settled', handler);
-    return () => window.removeEventListener('debt-settled', handler);
+    window.addEventListener('expense-updated', handler);
+    return () => {
+      window.removeEventListener('debt-settled', handler);
+      window.removeEventListener('expense-updated', handler);
+    };
   }, [fetchDashboardData]);
 
   const [showModal, setShowModal] = useState(false);
@@ -128,7 +132,7 @@ const Dashboard = () => {
     );
   }
 
-  const { groupBalances, expenses } = dashboardData;
+  const { totalSpending, groupBalances, expenses } = dashboardData;
 
   const displayGroups = groups.map((ctxGroup) => {
     const apiBalance = groupBalances.find((gb) => gb.id === ctxGroup._id);
@@ -229,7 +233,7 @@ const Dashboard = () => {
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative">
                   <h3 className="text-xs font-semibold text-gray-500 tracking-wider mb-2 uppercase">Total Spending</h3>
                   <div className="text-3xl font-bold text-gray-900 mb-2">
-                    ${(totalReceivable + totalOwed).toFixed(2)}
+                    ${Number(totalSpending || 0).toFixed(2)}
                   </div>
                   <div className="text-xs font-medium text-green-600 flex items-center gap-1">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
