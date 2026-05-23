@@ -82,51 +82,106 @@ const transformGroupData = (data, realDebts) => {
     })),  
   };  
 };  
+
+/* --- Stat cards: Rich, Pale Desaturated Palette --- */
+const statCardThemes = [
+  {
+    // 1. Blue
+    wrapper: "bg-[#D6E6F2] rounded-[24px] shadow-sm p-6 flex items-center gap-5 hover:shadow-md transition-shadow duration-200",
+    iconWrap: "w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm",
+    iconCls: "text-[#4A6D9C]",
+    labelCls: "text-sm font-medium text-[#4A6D9C]",
+    valueCls: "text-2xl font-extrabold text-slate-800 mt-1 tracking-tight",
+  },
+  {
+    // 2. Purple
+    wrapper: "bg-[#E2DCE9] rounded-[24px] shadow-sm p-6 flex items-center gap-5 hover:shadow-md transition-shadow duration-200",
+    iconWrap: "w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm",
+    iconCls: "text-[#5C4E8A]",
+    labelCls: "text-sm font-medium text-[#5C4E8A]",
+    valueCls: "text-2xl font-extrabold text-slate-800 mt-1 tracking-tight",
+  },
+  {
+    // 3. Green
+    wrapper: "bg-[#D1E2D3] rounded-[24px] shadow-sm p-6 flex items-center gap-5 hover:shadow-md transition-shadow duration-200",
+    iconWrap: "w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm",
+    iconCls: "text-[#3D7057]",
+    labelCls: "text-sm font-medium text-[#3D7057]",
+    valueCls: "text-2xl font-extrabold text-slate-800 mt-1 tracking-tight",
+  },
+  {
+    // 4. Yellow/Beige
+    wrapper: "bg-[#F3E8D5] rounded-[24px] shadow-sm p-6 flex items-center gap-5 hover:shadow-md transition-shadow duration-200",
+    iconWrap: "w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm",
+    iconCls: "text-[#8C7558]",
+    labelCls: "text-sm font-medium text-[#8C7558]",
+    valueCls: "text-2xl font-extrabold text-slate-800 mt-1 tracking-tight",
+  }
+];
+
+/* StatCard accepts a themeIndex to pick its pastel palette */
+const StatCard = ({ icon: Icon, label, value, themeIndex = 0 }) => {
   
-const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (  
-  <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow duration-200">  
-    <div className={`p-3 rounded-xl ${iconBg}`}>  
-      <Icon size={22} className={iconColor} />  
-    </div>  
-    <div>  
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</p>  
-      <p className="text-xl font-bold text-gray-800 mt-0.5">{value}</p>  
-    </div>  
-  </div>  
-);  
-  
+  const fallbackTheme = {
+    wrapper: "bg-white rounded-[24px] shadow-sm p-6 flex items-center gap-5 border border-gray-100",
+    iconWrap: "w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center",
+    iconCls: "text-slate-500",
+    labelCls: "text-sm font-medium text-slate-500",
+    valueCls: "text-2xl font-extrabold text-slate-800 mt-1 tracking-tight"
+  };
+
+  /* Safe check for the theme and Icon */
+  const t = (typeof statCardThemes !== 'undefined' && statCardThemes[themeIndex]) 
+    ? statCardThemes[themeIndex] 
+    : fallbackTheme;
+
+  return (
+    <div className={t.wrapper}>
+      <div className={t.iconWrap}>
+        {Icon && <Icon size={22} className={t.iconCls} />}
+      </div>
+      <div>
+        <p className={t.labelCls}>{label}</p>
+        <p className={t.valueCls}>{value}</p>
+      </div>
+    </div>
+  );
+};
+
 const MemberCard = ({ member }) => {  
   const isInvited = member.status === 'invited';
   const isZero = Math.abs(member.balance) < 0.01;  
   const isPositive = member.balance > 0.01;  
   
   return (  
-    <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow duration-200">  
+    <div className="bg-[#EAEFF5] rounded-[24px] shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow duration-200 border border-[#d6e0ec] text-slate-700">  
       <div className="flex items-center gap-3">  
-        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">  
-          <span className="text-indigo-600 font-semibold text-sm">  
+        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-[#d6e0ec]">  
+          <span className="text-slate-500 font-bold text-sm">  
             {member.name.split(" ").map((n) => n[0]).join("")}  
           </span>  
         </div>  
         <div className="min-w-0">  
-          <p className="font-semibold text-gray-800 text-sm truncate">{member.name}</p>  
-          <p className="text-xs text-gray-400 truncate">{member.email}</p>  
+          <p className="font-extrabold text-slate-700 text-sm truncate">{member.name}</p>  
+          <p className="text-xs text-slate-500 font-semibold truncate">{member.email}</p>  
         </div>  
       </div>  
       {isInvited ? (
-        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600">
+        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-[#FEF5DC] text-[#B08A20] shadow-sm">
           <Clock size={13} />
           Invited
         </div>
       ) : isZero ? (  
-        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">  
+        <div className="flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white text-slate-600 shadow-sm border border-[#d6e0ec]">  
           <CheckCircle size={13} />  
           Settled up  
         </div>  
       ) : (  
         <div  
-          className={`flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold ${  
-            isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"  
+          className={`flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide shadow-sm ${  
+            isPositive
+              ? "bg-[#E4F2E8] text-[#3D8A55]" 
+              : "bg-[#E2DCE9] text-[#5C4E8A]" 
           }`}  
         >  
           {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}  
@@ -135,7 +190,7 @@ const MemberCard = ({ member }) => {
       )}  
     </div>  
   );  
-};  
+};
   
 const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {  
   const [settling, setSettling] = useState(false);  
@@ -146,7 +201,6 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
     setSettling(true);  
     try {  
       await debtService.recordSettlement(groupId, debt.creditorId, debt.amount);  
-      // ✅ ΑΛΛΑΓΗ 1: await για να περιμένει το re-fetch + event dispatch
       await onSettle(debt.id);  
     } catch (err) {  
       console.error("Settle error:", err.message);  
@@ -158,9 +212,9 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
   
   if (debt.settled) {  
     return (  
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">  
-        <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />  
-        <span className="text-sm text-emerald-700 font-medium">  
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#EAEFF5] border border-[#d6e0ec] shadow-sm">  
+        <CheckCircle size={18} className="text-[#3D8A55] flex-shrink-0" />  
+        <span className="text-sm text-slate-600 font-semibold">  
           {debt.debtorName} → {debt.creditorName}&nbsp;|&nbsp;  
           {formatEuro(debt.amount)} — Settled  
         </span>  
@@ -169,35 +223,35 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
   }  
   
   return (  
-    <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">  
+    <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-[#EAEFF5] border border-[#d6e0ec] shadow-sm hover:shadow-md transition-shadow duration-200 text-slate-700">  
       <div className="flex items-center gap-3 min-w-0">  
-        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">  
-          <span className="text-red-500 font-semibold text-xs">  
+        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-[#d6e0ec]">  
+          <span className="text-slate-500 font-bold text-xs">  
             {debt.debtorName.split(" ").map((n) => n[0]).join("")}  
           </span>  
         </div>  
         <div className="min-w-0">  
-          <p className="text-sm font-semibold text-gray-700 truncate">  
-            <span className="text-red-500">{debt.debtorName}</span>  
-            <span className="text-gray-400 mx-1.5">owes</span>  
-            <span className="text-emerald-600">{debt.creditorName}</span>  
+          <p className="text-sm font-bold text-slate-700 truncate">  
+            <span className="text-[#5C4E8A]">{debt.debtorName}</span>  
+            <span className="text-slate-500 mx-1.5 font-semibold">owes</span>  
+            <span className="text-[#3D8A55]">{debt.creditorName}</span>  
           </p>  
-          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">  
+          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1 font-semibold">  
             <Clock size={11} />  
             Pending settlement  
           </p>  
         </div>  
       </div>  
-      <div className="flex items-center gap-3 flex-shrink-0">  
-        <span className="text-sm font-bold text-gray-800 flex items-center gap-1">  
-          <Euro size={13} className="text-gray-400" />  
+      <div className="flex items-center gap-4 flex-shrink-0">  
+        <span className="text-sm font-extrabold text-slate-700 flex items-center gap-1">  
+          <Euro size={13} className="text-slate-400" />  
           {formatEuro(debt.amount).replace("€", "")}  
         </span>  
         {isDebtor && (  
           <button  
             onClick={handleSettle}  
             disabled={settling}  
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"  
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#CBE4FE] text-slate-900 text-[11px] font-bold uppercase tracking-wide rounded-full hover:bg-[#B3D4F6] active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm border border-[#A6CFFC]"  
           >  
             {settling ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}  
             {settling ? "Settling…" : "Settle Up"}  
@@ -206,7 +260,8 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
       </div>  
     </div>  
   );  
-};  
+};
+
   
 const LoadingSkeleton = () => (  
   <div className="flex-1 overflow-y-auto p-10 animate-pulse">  
@@ -338,7 +393,6 @@ const GroupDetails = () => {
   useEffect(() => {  
     loadGroupData();
 
-    // Event-driven only: no periodic polling.
     const handleExpenseUpdated = () => loadGroupData();
     const handleDebtSettled = () => loadGroupData();
 
@@ -376,7 +430,6 @@ const GroupDetails = () => {
     }  
   };  
   
-  // ✅ ΑΛΛΑΓΗ 2: re-fetch + dispatch custom event για να ενημερωθεί το Dashboard
   const handleSettleDebt = async (debtId) => {  
     await fetchGroup();
     window.dispatchEvent(new CustomEvent('debt-settled'));
@@ -390,282 +443,293 @@ const GroupDetails = () => {
   )?.balance ?? 0;  
   
   return (  
-    <div className="flex h-screen bg-gray-50/50">  
+    <div className="flex flex-col min-h-screen bg-[#F5F7FA] font-sans">
+
+      {/* Page layout: sidebar + main */}
+      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 44px)' }}>
+
+        {/* Sidebar */}
+        <div className="w-64 bg-white border-r border-gray-100 flex flex-col pt-10 pb-6 rounded-r-3xl my-2 ml-2 shadow-sm flex-shrink-0">
+          <div className="px-8 mb-10 flex items-center gap-3">
+            <div className="flex gap-1">
+              <div className="w-3 h-3 bg-slate-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-slate-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-slate-500 rounded-full"></div>
+            </div>
+            <h1 className="text-xl font-bold text-slate-700">SplitWise</h1> 
+          </div> 
+
+          <nav className="flex-1 space-y-2 px-6"> 
+            <Link 
+              to="/?tab=overview" 
+              className="flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold text-sm text-gray-400 hover:text-slate-700 hover:bg-gray-50" 
+            > 
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> 
+                <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /> 
+                <rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /> 
+              </svg> 
+              Dashboard
+            </Link> 
+
+            <Link 
+              to="/?tab=groups" 
+              className="flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold text-sm bg-slate-600 text-white shadow-md" 
+            > 
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> 
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /> 
+                <circle cx="9" cy="7" r="4" /> 
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" /> 
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" /> 
+              </svg> 
+              Groups
+            </Link> 
+          </nav> 
+        </div>
+
+        {/* Main Content */}  
+        <div className="flex-1 flex flex-col overflow-hidden">  
   
-      {/* Sidebar */}  
-      <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col pt-8">  
-        <div className="px-8 mb-12">  
-          <h1 className="text-2xl font-bold text-blue-800">SplitWise</h1>  
-          <p className="text-xs text-gray-600 mt-1">Manage shared expenses</p>  
-        </div>  
-        <nav className="flex-1 space-y-2 px-4">  
-          <Link  
-            to="/?tab=overview"  
-            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-100"  
-          >  
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">  
-              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />  
-              <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />  
-            </svg>  
-            <span className="font-medium text-sm">Overview</span>  
-          </Link>  
-          <Link  
-            to="/?tab=groups"  
-            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative text-blue-700 bg-blue-50/50"  
-          >  
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-700 rounded-r-full" />  
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">  
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />  
-              <circle cx="9" cy="7" r="4" />  
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />  
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />  
-            </svg>  
-            <span className="font-medium text-sm">Groups</span>  
-          </Link>  
-        </nav>  
-        <div className="p-4 border-t border-gray-200 mt-auto" />  
-      </div>  
-  
-      {/* Main Content */}  
-      <div className="flex-1 flex flex-col overflow-hidden">  
-  
-        {/* Header */}  
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10 flex-shrink-0">  
-          <div className="flex items-center gap-3">  
-            <button  
-              onClick={() => navigate("/?tab=groups")}  
-              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-700 transition-colors mr-2"  
-            >  
-              <ChevronLeft size={16} />  
-              <span>Groups</span>  
-            </button>  
-            <span className="text-gray-300">/</span>  
-            <h2 className="text-xl font-semibold text-blue-800 ml-2">  
-              {loading ? "Loading…" : (group?.name ?? "Group Details")}  
-            </h2>  
-          </div>  
-          <div className="flex items-center gap-6">  
-            <NotificationBell />  
-            <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">  
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">  
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />  
-                <circle cx="12" cy="7" r="4" />  
-              </svg>  
-            </Link>  
-          </div>  
-        </header>  
-  
-        {loading ? (  
-          <LoadingSkeleton />  
-        ) : error ? (  
-          <div className="flex-1 flex items-center justify-center p-10">  
-            <div className="bg-white rounded-2xl shadow-sm p-8 text-center max-w-sm">  
-              <p className="text-red-500 font-semibold text-lg mb-2">Could not load group</p>  
-              <p className="text-gray-400 text-sm">{error}</p>  
+          {/* Header */}  
+          <header className="h-24 flex items-center justify-between pt-6 pb-2 px-10 flex-shrink-0">  
+            <div className="flex items-center gap-3">  
               <button  
                 onClick={() => navigate("/?tab=groups")}  
-                className="mt-4 text-blue-700 text-sm font-medium hover:underline flex items-center gap-1 mx-auto"  
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-slate-700 transition-colors mr-2"  
               >  
-                <ChevronLeft size={14} /> Back to Groups  
+                <ChevronLeft size={16} />  
+                <span>Groups</span>  
               </button>  
+              <span className="text-gray-300 font-light text-xl">/</span>  
+              <h2 className="text-2xl font-bold text-slate-700 ml-2 tracking-tight">  
+                {loading ? "Loading…" : (group?.name ?? "Group Details")}  
+              </h2>  
             </div>  
-          </div>  
-        ) : (  
-          <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30 space-y-10">  
-            <div className="max-w-5xl mx-auto space-y-8">  
+            <div className="flex items-center gap-4">
+              {/* Notification bell styled black to match the profile button */}
+              <div className="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center border border-gray-300 ring-2 ring-slate-100 text-white shadow-sm">
+                <NotificationBell />
+              </div>
+              <Link to="/profile" className="block w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center border border-gray-300 ring-2 ring-slate-100 text-white shadow-sm">  
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">  
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />  
+                  <circle cx="12" cy="7" r="4" />  
+                </svg>  
+              </Link>  
+            </div>  
+          </header>
   
-              {/* Page Header */}  
-              <div className="flex items-center justify-between">  
-                <div>  
-                  <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>  
-                </div>  
-                <div className="flex items-center gap-3">  
-                  <button  
-                    onClick={() => setShowInviteModal(true)}  
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm"  
-                  >  
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">  
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>  
-                      <circle cx="8.5" cy="7" r="4"></circle>  
-                      <line x1="20" y1="8" x2="20" y2="14"></line>  
-                      <line x1="23" y1="11" x2="17" y2="11"></line>  
-                    </svg>  
-                    Invite Member  
-                  </button>  
-                  <button  
-                    onClick={() => { 
-                      setEditingIndex(null); 
-                      setEditingId(null); 
-                      setDescription(''); 
-                      setAmount(''); 
-                      setDate(''); 
-                      setPaidBy(members[0]?.id || ''); 
-                      setSplitMethod('Equal Split'); 
-                      setCustomSplits({}); 
-                      setPercentageSplits({}); 
-                      setShowExpenseForm(true); 
-                    }}  
-                    className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm"  
-                  >  
-                    Add Expense  
-                  </button>  
-                  <div className="hidden md:flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2 shadow-sm text-sm text-gray-500 font-medium">  
-                    <UserCircle size={16} className="text-indigo-400" />  
-                    {group.members.length} members  
-                  </div>  
-                </div>  
+          {loading ? (  
+            <LoadingSkeleton />  
+          ) : error ? (  
+            <div className="flex-1 flex items-center justify-center p-10">  
+              <div className="bg-white rounded-2xl shadow-sm p-8 text-center max-w-sm">  
+                <p className="text-red-500 font-semibold text-lg mb-2">Could not load group</p>  
+                <p className="text-gray-400 text-sm">{error}</p>  
+                <button  
+                  onClick={() => navigate("/?tab=groups")}  
+                  className="mt-4 text-blue-700 text-sm font-medium hover:underline flex items-center gap-1 mx-auto"  
+                >  
+                  <ChevronLeft size={14} /> Back to Groups  
+                </button>  
               </div>  
-  
-              {/* Stat Cards */}  
-              <section>  
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">  
-                  <StatCard icon={Receipt} label="Total Expenses" value={formatEuro(group.totalExpenses)} iconBg="bg-indigo-50" iconColor="text-indigo-500" />  
-                  <StatCard  
-                    icon={Wallet}  
-                    label="My Balance"  
-                    value={formatEuro(myBalance)}  
-                    iconBg={myBalance > 0 ? "bg-emerald-50" : myBalance < 0 ? "bg-red-50" : "bg-gray-100"}  
-                    iconColor={myBalance > 0 ? "text-emerald-500" : myBalance < 0 ? "text-red-500" : "text-gray-400"}  
-                  />  
-                  <StatCard icon={Users} label="Members" value={group.members.length} iconBg="bg-violet-50" iconColor="text-violet-500" />  
-                  <StatCard icon={Clock} label="Pending Debts" value={activeDebts.length} iconBg="bg-amber-50" iconColor="text-amber-500" />  
-                </div>  
-              </section>  
-  
-              {/* Members Grid */}  
-              <section>  
-                <div className="flex items-center gap-2 mb-4">  
-                  <Users size={18} className="text-indigo-500" />  
-                  <h2 className="text-lg font-bold text-gray-800">Members</h2>  
-                  <span className="ml-auto text-xs text-gray-400 font-medium">{group.members.length} total</span>  
-                </div>  
-                {group.members.length === 0 ? (  
-                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">  
-                    <Users size={40} className="text-gray-300 mx-auto mb-3" />  
-                    <p className="text-gray-500 font-semibold">No members yet</p>  
-                    <p className="text-gray-400 text-sm mt-1">Invite people to join this group.</p>  
-                  </div>  
-                ) : (  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">  
-                    {group.members.map((member) => (  
-                      <MemberCard key={member.id} member={member} />  
-                    ))}  
-                  </div>  
-                )}  
-              </section>  
-  
-              {/* Debt Relationships */}  
-              <section>  
-                <div className="flex items-center gap-2 mb-4">  
-                  <ArrowRight size={18} className="text-indigo-500" />  
-                  <h2 className="text-lg font-bold text-gray-800">Debt Relationships</h2>  
-                  {activeDebts.length > 0 && (  
-                    <span className="ml-2 px-2 py-0.5 bg-red-50 text-red-500 text-xs font-semibold rounded-full">  
-                      {activeDebts.length} active  
-                    </span>  
-                  )}  
-                  {settledDebts.length > 0 && (  
-                    <span className="ml-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-full">  
-                      {settledDebts.length} settled  
-                    </span>  
-                  )}  
-                </div>  
-                {debts.length === 0 ? (  
-                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">  
-                    <CheckCircle size={40} className="text-emerald-400 mx-auto mb-3" />  
-                    <p className="text-gray-600 font-semibold">All settled up!</p>  
-                    <p className="text-gray-400 text-sm mt-1">No outstanding debts in this group.</p>  
-                  </div>  
-                ) : (  
-                  <div className="space-y-3">  
-                    {[...activeDebts, ...settledDebts].map((debt) => (  
-                      <DebtRow  
-                        key={debt.id}  
-                        debt={debt}  
-                        onSettle={handleSettleDebt}  
-                        groupId={groupId}  
-                        currentUserId={user?._id}  
-                      />  
-                    ))}  
-                  </div>  
-                )}  
-              </section>  
-
-              {/* Expense History */}
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <Receipt size={18} className="text-indigo-500" />
-                  <h2 className="text-lg font-bold text-gray-800">Expense History</h2>
-                  <span className="ml-auto text-xs text-gray-400 font-medium">{expenses.length} total</span>
-                </div>
-
-                {expenses.length === 0 ? (
-                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
-                    <Receipt size={40} className="text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-600 font-semibold">No expenses yet</p>
-                    <p className="text-gray-400 text-sm mt-1">Add the first expense for this group.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {expenses.map((expense, index) => (
-                      <div
-                        key={expense._id || index}
-                        className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow duration-200"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{expense.description}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-gray-500">
-                              {expense.date && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
-                                  {expense.date}
-                                </span>
-                              )}
-                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
-                                Paid by {expense.paidByName}
-                              </span>
-                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-violet-50 text-violet-600 font-semibold">
-                                {expense.splitMethod || 'Equal Split'}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-sm font-bold text-gray-700 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 whitespace-nowrap">
-                            {formatEuro(expense.amount)}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          {expense.splits && expense.splits.length > 0 && (
-                            <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                              <p className="font-semibold text-gray-700 mb-2">Splits</p>
-                              {expense.splits.map((split, i) => (
-                                <div key={i} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-b-0">
-                                  <span className="font-medium text-gray-700">{split.user?.name || 'Unknown'}</span>
-                                  <span className="font-semibold text-gray-600">{formatEuro(split.amountOwed)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-  
-              <p className="text-center text-xs text-gray-300 pt-4 pb-4">  
-                GroupDetails · Expense Sharing Platform  
-              </p>  
             </div>  
-          </main>  
-        )}  
-      </div>  
+          ) : (  
+            <main className="flex-1 overflow-y-auto p-10 space-y-10">
+              <div className="max-w-5xl mx-auto space-y-8">  
+  
+                {/* Page Header */} 
+                <div className="flex items-center justify-between"> 
+                  <div> 
+                    <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1> 
+                  </div> 
+                  <div className="flex items-center gap-3"> 
+                    <button 
+                      onClick={() => setShowInviteModal(true)} 
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:from-gray-500 hover:to-gray-600 transition-colors shadow-sm" 
+                    > 
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"> 
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path> 
+                        <circle cx="8.5" cy="7" r="4"></circle> 
+                        <line x1="20" y1="8" x2="20" y2="14"></line> 
+                        <line x1="23" y1="11" x2="17" y2="11"></line> 
+                      </svg> 
+                      Invite Member 
+                    </button> 
+                    <button 
+                      onClick={() => { 
+                        setEditingIndex(null); 
+                        setEditingId(null); 
+                        setDescription(''); 
+                        setAmount(''); 
+                        setDate(''); 
+                        setPaidBy(members[0]?.id || ''); 
+                        setSplitMethod('Equal Split'); 
+                        setCustomSplits({}); 
+                        setPercentageSplits({}); 
+                        setShowExpenseForm(true); 
+                      }} 
+                      className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm" 
+                    > 
+                      Add Expense 
+                    </button> 
+                    <div className="hidden md:flex items-center gap-2 bg-[#D1E2D3] text-[#3D7057] rounded-xl px-4 py-2 shadow-sm text-sm font-semibold"> 
+                      <UserCircle size={16} className="text-[#3D7057]" /> 
+                      {group.members.length} members 
+                    </div> 
+                  </div> 
+                </div>
+  
+                {/* Stat Cards — each with its own pastel theme */}  
+                <section>  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">  
+                    <StatCard icon={Receipt}  label="Total Expenses" value={formatEuro(group.totalExpenses)} themeIndex={0} />
+                    <StatCard
+                      icon={myBalance > 0 ? TrendingUp : myBalance < 0 ? TrendingDown : Wallet}
+                      label="My Balance"
+                      value={formatEuro(myBalance)}
+                      themeIndex={1}
+                    />
+                    <StatCard icon={Users}   label="Members"       value={group.members.length}   themeIndex={2} />
+                    <StatCard icon={Clock}   label="Pending Debts" value={activeDebts.length}      themeIndex={3} />
+                  </div>  
+                </section>  
+  
+                {/* Members Grid */}  
+                <section>  
+                  <div className="flex items-center gap-2 mb-4">  
+                    <Users size={18} className="text-[#7C5FC4]" />  
+                    <h2 className="text-lg font-bold text-gray-800">Members</h2>  
+                    <span className="ml-auto text-xs text-gray-400 font-medium">{group.members.length} total</span>  
+                  </div>  
+                  {group.members.length === 0 ? (  
+                    <div className="bg-white rounded-2xl shadow-sm p-10 text-center">  
+                      <Users size={40} className="text-gray-300 mx-auto mb-3" />  
+                      <p className="text-gray-500 font-semibold">No members yet</p>  
+                      <p className="text-gray-400 text-sm mt-1">Invite people to join this group.</p>  
+                    </div>  
+                  ) : (  
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">  
+                      {group.members.map((member) => (  
+                        <MemberCard key={member.id} member={member} />  
+                      ))}  
+                    </div>  
+                  )}  
+                </section>  
+  
+                {/* Debt Relationships */}  
+                <section>  
+                  <div className="flex items-center gap-2 mb-4">  
+                    <ArrowRight size={18} className="text-[#7C5FC4]" />  
+                    <h2 className="text-lg font-bold text-gray-800">Debt Relationships</h2>  
+                    {activeDebts.length > 0 && (  
+                      <span className="ml-2 px-2 py-0.5 bg-[#E2DCE9] text-[#5C4E8A] text-xs font-semibold rounded-full">  
+                        {activeDebts.length} active  
+                      </span>  
+                    )}  
+                    {settledDebts.length > 0 && (  
+                      <span className="ml-1 px-2 py-0.5 bg-[#E4F2E8] text-[#3D8A55] text-xs font-semibold rounded-full">  
+                        {settledDebts.length} settled  
+                      </span>  
+                    )}  
+                  </div>  
+                  {debts.length === 0 ? (  
+                    <div className="bg-white rounded-2xl shadow-sm p-10 text-center">  
+                      <CheckCircle size={40} className="text-[#3D8A55] mx-auto mb-3" />  
+                      <p className="text-gray-600 font-semibold">All settled up!</p>  
+                      <p className="text-gray-400 text-sm mt-1">No outstanding debts in this group.</p>  
+                    </div>  
+                  ) : (  
+                    <div className="space-y-3">  
+                      {[...activeDebts, ...settledDebts].map((debt) => (  
+                        <DebtRow  
+                          key={debt.id}  
+                          debt={debt}  
+                          onSettle={handleSettleDebt}  
+                          groupId={groupId}  
+                          currentUserId={user?._id}  
+                        />  
+                      ))}  
+                    </div>  
+                  )}  
+                </section>
+
+                {/* Expense History */}
+                <section>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Receipt size={18} className="text-[#7C5FC4]" />
+                    <h2 className="text-lg font-bold text-gray-800">Expense History</h2>
+                    <span className="ml-auto text-xs text-gray-400 font-medium">{expenses.length} total</span>
+                  </div>
+
+                  {expenses.length === 0 ? (
+                    <div className="bg-[#EAEFF5] border border-[#d6e0ec] rounded-2xl p-10 text-center text-slate-700 shadow-sm">
+                      <Receipt size={40} className="text-slate-400 mx-auto mb-3" />
+                      <p className="font-bold text-slate-700">No expenses yet</p>
+                      <p className="text-slate-500 text-sm mt-1">Add the first expense for this group.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {expenses.map((expense, index) => (
+                        <div
+                          key={expense._id || index}
+                          className="bg-[#EAEFF5] border border-[#d6e0ec] rounded-2xl p-5 hover:shadow-md transition-shadow duration-200 text-slate-700 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-extrabold text-slate-700 truncate">{expense.description}</p>
+                              <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] uppercase font-bold tracking-wide">
+                                {expense.date && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-white text-slate-600 shadow-sm border border-[#d6e0ec]">
+                                    {expense.date}
+                                  </span>
+                                )}
+                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#E2DCE9] text-[#5C4E8A] shadow-sm">
+                                  Paid by {expense.paidByName}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#FEF5DC] text-[#B08A20] shadow-sm">
+                                  {expense.splitMethod || 'Equal Split'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold bg-slate-600 text-white px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">
+                              {formatEuro(expense.amount)}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-[#d6e0ec]">
+                            {expense.splits && expense.splits.length > 0 && (
+                              <div className="text-xs text-slate-600 bg-white/50 rounded-xl border border-[#d6e0ec] shadow-inner">
+                                <p className="font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider p-3 pb-0">Splits</p>
+                                {expense.splits.map((split, i) => (
+                                  <div key={i} className="flex items-center justify-between py-1 border-b border-[#d6e0ec] last:border-b-0 px-3 last:pb-3">
+                                    <span className="font-semibold text-slate-600">{split.user?.name || 'Unknown'}</span>
+                                    <span className="font-bold text-slate-700">{formatEuro(split.amountOwed)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+              </div>  
+            </main>  
+          )}
+
+          {/* Shared footer */}
+          <footer className="bg-slate-900 text-white text-center py-3 text-xs font-medium tracking-wide flex-shrink-0">
+            © 2026 SplitWise
+          </footer>
+        </div>
+      </div>
   
       {/* MODAL: Expense Form */}  
       {showExpenseForm && (  
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">  
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">  
-
             <h3 className="text-xl font-bold text-gray-900 mb-4">  
               {editingIndex !== null ? 'Edit Expense' : 'Add Expense'}  
             </h3>  
@@ -678,7 +742,7 @@ const GroupDetails = () => {
                   placeholder="Dinner, Trip, Hotel..."  
                   value={description}  
                   onChange={(e) => setDescription(e.target.value)}  
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"  
                 />  
               </div>  
               <div>  
@@ -688,7 +752,7 @@ const GroupDetails = () => {
                   placeholder="0.00"  
                   value={amount}  
                   onChange={(e) => setAmount(e.target.value)}  
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"  
                 />  
               </div>  
               <div>  
@@ -697,7 +761,7 @@ const GroupDetails = () => {
                   type="date"  
                   value={date}  
                   onChange={(e) => setDate(e.target.value)}  
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"  
                 />  
               </div>  
               <div>  
@@ -705,7 +769,7 @@ const GroupDetails = () => {
                 <select  
                   value={paidBy}  
                   onChange={(e) => setPaidBy(e.target.value)}  
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"  
                 >  
                   {members.map((member) => (  
                     <option key={member.id} value={member.id}>{member.name}</option>  
@@ -717,7 +781,7 @@ const GroupDetails = () => {
                 <select  
                   value={splitMethod}  
                   onChange={(e) => setSplitMethod(e.target.value)}  
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"  
                 >  
                   <option>Equal Split</option>  
                   <option>Exact Amounts</option>  
@@ -727,12 +791,12 @@ const GroupDetails = () => {
             </div>  
   
             {splitMethod === 'Equal Split' && amount && (  
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">  
-                <p className="text-sm font-medium text-blue-800 mb-2">Equal Split Preview</p>  
-                <p className="text-sm text-blue-700">  
+              <div className="bg-[#EDE9F6] border border-[#D8D0F0] rounded-lg p-4 mb-4">  
+                <p className="text-sm font-medium text-[#3D2B87] mb-2">Equal Split Preview</p>  
+                <p className="text-sm text-[#7C5FC4]">  
                   Each member owes: €{(Number(amount) / (members.length || 1)).toFixed(2)}  
                 </p>  
-                <p className="text-xs text-blue-600 mt-1">Split between {members.length} members</p>  
+                <p className="text-xs text-[#7C5FC4] mt-1 opacity-70">Split between {members.length} members</p>  
               </div>  
             )}  
   
@@ -748,7 +812,7 @@ const GroupDetails = () => {
                         placeholder="0.00"  
                         value={customSplits[member.name] || ''}  
                         onChange={(e) => setCustomSplits({ ...customSplits, [member.name]: e.target.value })}  
-                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"  
                       />  
                     </div>  
                   ))}  
@@ -778,7 +842,7 @@ const GroupDetails = () => {
                           placeholder="0"  
                           value={percentageSplits[member.name] || ''}  
                           onChange={(e) => setPercentageSplits({ ...percentageSplits, [member.name]: e.target.value })}  
-                          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"  
+                          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"  
                         />  
                         <span className="text-sm text-gray-500">%</span>  
                       </div>  
@@ -885,7 +949,7 @@ const GroupDetails = () => {
                     alert(message);
                   }
                 }}  
-                className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800"  
+                className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition-colors"  
               >  
                 {editingIndex !== null ? 'Update Expense' : 'Save Expense'}  
               </button>  
@@ -900,7 +964,7 @@ const GroupDetails = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">  
             <h3 className="text-xl font-bold text-gray-900 mb-4">Invite Member to Group</h3>  
             {inviteMessage && (  
-              <div className={`mb-4 p-3 rounded text-sm ${inviteMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>  
+              <div className={`mb-4 p-3 rounded text-sm ${inviteMessage.type === 'success' ? 'bg-[#E4F2E8] text-[#1E5C35]' : 'bg-[#FDE8EF] text-[#D9527A]'}`}>  
                 {inviteMessage.text}  
               </div>  
             )}  
@@ -911,7 +975,7 @@ const GroupDetails = () => {
                 value={inviteEmail}  
                 onChange={(e) => setInviteEmail(e.target.value)}  
                 placeholder="friend@example.com"  
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"  
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-slate-400 focus:border-slate-400 outline-none"  
                 autoFocus  
                 required  
               />  
@@ -928,7 +992,7 @@ const GroupDetails = () => {
                 type="button"  
                 onClick={handleInviteAction}  
                 disabled={isLoading}  
-                className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50"  
+                className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition-colors disabled:opacity-50"  
               >  
                 {isLoading ? 'Sending...' : 'Send Invite'}  
               </button>  
