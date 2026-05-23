@@ -1,4 +1,6 @@
 const Expense = require('../models/Expense');
+const Notification = require('../models/Notification');
+const Group = require('../models/Group');
 
 const createExpense = async (req, res) => {
   try {
@@ -31,6 +33,34 @@ const createExpense = async (req, res) => {
   percentageSplits,
   splits,
 });
+
+try {
+      // Βρίσκουμε το όνομα του group για να το βάλουμε στο μήνυμα
+      const groupData = await Group.findById(groupId);
+      const groupName = groupData ? groupData.name : 'Group';
+
+      // Φιλτράρουμε τη λίστα splits ώστε να μην στείλουμε ειδοποίηση στον εαυτό μας (payer)
+      // Στο splits, κάθε αντικείμενο έχει τη δομή { user: userId, amountOwed: X }
+      const membersToNotify = splits.filter(
+        (s) => s.user.toString() !== payer.toString()
+      );
+
+      // Δημιουργούμε τις ειδοποιήσεις για όλα τα υπόλοιπα μέλη παράλληλα
+      const notifPromises = membersToNotify.map((member) => {
+        return Notification.create({
+          user: member.user,
+          message: `Προστέθηκε νέο έξοδο "${description}" ύψους $${totalAmount} στην ομάδα ${groupName}.`,
+          type: 'expense_added',
+          relatedGroup: groupId
+        });
+      });
+
+      await Promise.all(notifPromises);
+    } catch (notifError) {
+      // Αν για οποιοδήποτε λόγο αποτύχει η ειδοποίηση, κάνουμε console.log 
+      // αλλά ΔΕΝ κρασάρουμε το request, ώστε ο χρήστης να αποθηκεύσει κανονικά το έξοδο.
+      console.error("Error creating notifications for expense:", notifError);
+    }
 
     res.status(201).json(expense);
   } catch (error) {

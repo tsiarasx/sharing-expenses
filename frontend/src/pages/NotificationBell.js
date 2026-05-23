@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNotifications, acceptInvitation, rejectInvitation } from '../services/invitationService';
+import { getNotifications, acceptInvitation, rejectInvitation, markNotificationAsRead } from '../services/invitationService';
 
 const NotificationBell = () => {
   const navigate = useNavigate();
@@ -29,6 +29,33 @@ const NotificationBell = () => {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleBellClick = async () => {
+    const nextShowDropdown = !showDropdown;
+    setShowDropdown(nextShowDropdown);
+
+    // Αν το μενού ΑΝΟΙΓΕΙ, κάνουμε read τα έξοδα και τα reminders
+    if (nextShowDropdown) {
+      // Φιλτράρουμε ειδοποιήσεις που ΔΕΝ είναι προσκλήσεις (γιατί οι προσκλήσεις θέλουν Accept/Decline) 
+      // και είναι unread
+      const nonInviteUnread = notifications.filter(
+        (n) => !n.isRead && n.type !== 'invitation'
+      );
+
+      if (nonInviteUnread.length > 0) {
+        try {
+          // Στέλνουμε αίτημα στο backend για κάθε μία παράλληλα
+          const readPromises = nonInviteUnread.map((n) => markNotificationAsRead(n._id));
+          await Promise.all(readPromises);
+          
+          // Ανανεώνουμε τοπικά τη λίστα χωρίς να ξανακάνουμε fetch
+          fetchNotifications();
+        } catch (error) {
+          console.error("Error marking notifications as read:", error);
+        }
+      }
+    }
+  };
 
   const handleAccept = async (groupId) => {
     try {
@@ -70,7 +97,7 @@ const NotificationBell = () => {
     <div className="relative">
       {/* Κουμπί Καμπάνας */}
       <button 
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={handleBellClick}
         className="text-gray-500 hover:text-gray-700 relative p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
