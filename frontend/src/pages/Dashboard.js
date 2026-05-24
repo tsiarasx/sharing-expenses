@@ -210,8 +210,12 @@ const Dashboard = () => {
     (a, b) => new Date(b.date) - new Date(a.date) 
   ); 
 
-  const mockChartData = (expenses && expenses.length > 0) 
-    ? expenses.map((e, i) => ({ name: i, val: Math.abs(e.totalAmount || e.myShare || 0) })) 
+  const mockChartData = (expenses && expenses.length > 0)
+    ? expenses.map((e, i) => ({
+        name: i,
+        // Chart should represent only what the current user spent in each expense.
+        val: Number(e.myShare || 0),
+      }))
     : [{val: 100}, {val: 200}, {val: 150}, {val: 300}, {val: 250}, {val: 400}];
  
   return ( 
