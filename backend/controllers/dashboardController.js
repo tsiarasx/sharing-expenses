@@ -29,6 +29,7 @@ const getUserDashboard = async (req, res) => {
     //   - as a participant in splits
     const expenses = await Expense.find({
       group: { $in: acceptedGroupIds },
+      status: { $ne: 'failed' },
       $or: [{ payer: userId }, { "splits.user": userId }],
     })
       .populate("payer", "name email")
@@ -177,17 +178,28 @@ const getGroupDashboard = async (req, res) => {
     // ── A. groupDetails ───────────────────────────────
     const group = await Group.findById(groupId)
       .populate("members.user", "name email")
+      .populate("createdBy", "name email")
       .lean();
 
     if (!group) {
       return res.status(404).json({ success: false, message: "Group not found" });
     }
 
+    const acceptedMembers = (group.members || []).filter((m) => m.user);
+    const fallbackCreator = acceptedMembers.find((m) => m.status === 'accepted')?.user || null;
+    const creator = group.createdBy || fallbackCreator;
+
     const groupDetails = {
       groupId: group._id,
       name: group.name,
-      members: group.members
-        .filter((m) => m.user)
+      createdBy: creator
+        ? {
+            userId: creator._id,
+            name: creator.name,
+            email: creator.email,
+          }
+        : null,
+      members: acceptedMembers
         .map((m) => ({
           userId: m.user._id,
           name: m.user.name,
@@ -197,7 +209,7 @@ const getGroupDashboard = async (req, res) => {
     };
 
     // ── B. totalGroupExpenses ─────────────────────────
-    const expenses = await Expense.find({ group: groupId })
+    const expenses = await Expense.find({ group: groupId, status: { $ne: 'failed' } })
       .populate("payer", "name email")
       .populate("splits.user", "name email")
       .lean();

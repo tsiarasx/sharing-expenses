@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";  
+import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";  
 import { useParams, Link, useNavigate } from "react-router-dom";  
 import {  
   Users,  
@@ -59,6 +59,13 @@ const transformGroupData = (data, realDebts) => {
   return {  
     id: groupDetails.groupId || groupDetails._id || "unknown",  
     name: groupDetails.name || "Unnamed Group",  
+    createdBy: groupDetails.createdBy
+      ? {
+          id: safeGetId(groupDetails.createdBy),
+          name: groupDetails.createdBy.name || "Unknown",
+          email: groupDetails.createdBy.email || "",
+        }
+      : null,
     totalExpenses: totalGroupExpenses,  
     totalBalance,  
     members: members.map((m) => {  
@@ -148,7 +155,7 @@ const StatCard = ({ icon: Icon, label, value, themeIndex = 0 }) => {
   );
 };
 
-const MemberCard = ({ member }) => {  
+const MemberCard = ({ member, isAdmin = false }) => {  
   const isInvited = member.status === 'invited';
   const isZero = Math.abs(member.balance) < 0.01;  
   const isPositive = member.balance > 0.01;  
@@ -162,7 +169,14 @@ const MemberCard = ({ member }) => {
           </span>  
         </div>  
         <div className="min-w-0">  
-          <p className="font-extrabold text-slate-700 text-sm truncate">{member.name}</p>  
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="font-extrabold text-slate-700 text-sm truncate">{member.name}</p>
+            {isAdmin && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E2DCE9] text-[#5C4E8A] text-[9px] font-bold uppercase tracking-wide shadow-sm">
+                Admin
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 font-semibold truncate">{member.email}</p>  
         </div>  
       </div>  
@@ -192,7 +206,7 @@ const MemberCard = ({ member }) => {
   );  
 };
   
-const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {  
+const DebtRow = ({ debt, onSettle, groupId, currentUserId, disableSettleAction = false }) => {  
   const [settling, setSettling] = useState(false);  
   
   const isDebtor = currentUserId && String(debt.debtorId) === String(currentUserId);  
@@ -200,7 +214,7 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
   const handleSettle = async () => {  
     setSettling(true);  
     try {  
-      await debtService.recordSettlement(groupId, debt.creditorId, debt.amount);  
+      await debtService.recordSettlement(groupId, debt.creditorId, debt.amount, debt.expenseId || null);  
       await onSettle(debt.id);  
     } catch (err) {  
       console.error("Settle error:", err.message);  
@@ -240,6 +254,11 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
             <Clock size={11} />  
             Pending settlement  
           </p>  
+          {debt.billTitle && (
+            <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+              Expense: {debt.billTitle}{debt.billDate ? ` • ${debt.billDate}` : ''}
+            </p>
+          )}
         </div>  
       </div>  
       <div className="flex items-center gap-4 flex-shrink-0">  
@@ -250,7 +269,7 @@ const DebtRow = ({ debt, onSettle, groupId, currentUserId }) => {
         {isDebtor && (  
           <button  
             onClick={handleSettle}  
-            disabled={settling}  
+            disabled={settling || disableSettleAction}  
             className="flex items-center gap-1.5 px-4 py-1.5 bg-[#CBE4FE] text-slate-900 text-[11px] font-bold uppercase tracking-wide rounded-full hover:bg-[#B3D4F6] active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm border border-[#A6CFFC]"  
           >  
             {settling ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}  
@@ -306,6 +325,7 @@ const GroupDetails = () => {
   const [debts, setDebts] = useState([]);  
   const [loading, setLoading] = useState(true);  
   const [error, setError] = useState(null);  
+  const [settlingAll, setSettlingAll] = useState(false);
 
   const fetchExpenses = useCallback(async () => {  
     if (!groupId || !user?.token) return;  
@@ -335,6 +355,8 @@ const GroupDetails = () => {
         amount: expense.totalAmount,  
         paidBy: expense.payer?._id || expense.payer,  
         paidByName: expense.payer?.name || 'Unknown',  
+        status: expense.status || 'active',
+        failedReason: expense.failedReason || null,
         splitMethod: expense.splitMethod || 'Equal Split',  
         date: expense.date || new Date(expense.createdAt).toLocaleDateString(),  
         amountPerMember: expense.amountPerMember || null, 
@@ -434,9 +456,76 @@ const GroupDetails = () => {
     await fetchGroup();
     window.dispatchEvent(new CustomEvent('debt-settled'));
   };  
+
+  const handleSettleAllDebts = async () => {
+    const myOpenDebts = myActiveBills;
+
+    if (myOpenDebts.length < 2) return;
+
+    setSettlingAll(true);
+    try {
+      for (const debt of myOpenDebts) {
+        await debtService.recordSettlement(groupId, debt.creditorId, debt.amount);
+      }
+
+      await fetchGroup();
+      window.dispatchEvent(new CustomEvent('debt-settled'));
+    } catch (err) {
+      console.error('Settle all error:', err);
+      alert(err?.response?.data?.message || 'Failed to settle all debts.');
+    } finally {
+      setSettlingAll(false);
+    }
+  };
   
   const activeDebts = debts.filter((d) => !d.settled);  
   const settledDebts = debts.filter((d) => d.settled);  
+  const myActiveDebts = activeDebts.filter(
+    (debt) => String(debt.debtorId) === String(user?._id)
+  );
+
+  const myActiveBills = useMemo(() => {
+    if (!user?._id || !Array.isArray(expenses)) return [];
+
+    return expenses
+      .map((expense, index) => {
+        if (expense.status === 'failed' || expense.status === 'settled') return null;
+
+        const payerId = String(expense.paidBy || '');
+        if (!payerId || payerId === String(user._id)) return null;
+
+        const mySplit = (expense.splits || []).find((split) => {
+          const splitUserId = String(split?.user?._id || split?.user || '');
+          return splitUserId === String(user._id);
+        });
+
+        if (!mySplit) return null;
+
+        const amountOwed = Number(mySplit.amountOwed || 0);
+        const settledAmount = Number(mySplit.settledAmount || 0);
+        const remaining = Number((amountOwed - settledAmount).toFixed(2));
+
+        if (remaining <= 0.01) return null;
+
+        return {
+          id: `${expense._id || index}`,
+          expenseId: expense._id,
+          debtorId: String(user._id),
+          debtorName: user.name || 'You',
+          creditorId: payerId,
+          creditorName: expense.paidByName || 'Unknown',
+          amount: remaining,
+          settled: false,
+          billTitle: expense.description || 'Expense',
+          billDate: expense.date || '',
+        };
+      })
+      .filter(Boolean);
+  }, [expenses, user?._id, user?.name]);
+
+  const otherActiveDebts = activeDebts.filter(
+    (debt) => String(debt.debtorId) !== String(user?._id)
+  );
   
   const myBalance = group?.members.find(  
     (m) => String(m.id) === String(user?._id)  
@@ -545,6 +634,11 @@ const GroupDetails = () => {
                 <div className="flex items-center justify-between"> 
                   <div> 
                     <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1> 
+                    {group.createdBy?.name && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        Admin: <span className="font-semibold text-slate-700">{group.createdBy.name}</span>
+                      </p>
+                    )}
                   </div> 
                   <div className="flex items-center gap-3"> 
                     <button 
@@ -619,7 +713,11 @@ const GroupDetails = () => {
                   ) : (  
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">  
                       {group.members.map((member) => (  
-                        <MemberCard key={member.id} member={member} />  
+                        <MemberCard
+                          key={member.id}
+                          member={member}
+                          isAdmin={String(member.id) === String(group.createdBy?.id)}
+                        />  
                       ))}  
                     </div>  
                   )}  
@@ -650,16 +748,72 @@ const GroupDetails = () => {
                       <p className="text-slate-500 text-sm mt-1">No outstanding debts in this group.</p>  
                     </div>  
                   ) : (  
-                    <div className="space-y-3">  
-                      {[...activeDebts, ...settledDebts].map((debt) => (  
-                        <DebtRow  
-                          key={debt.id}  
-                          debt={debt}  
-                          onSettle={handleSettleDebt}  
-                          groupId={groupId}  
-                          currentUserId={user?._id}  
-                        />  
-                      ))}  
+                    <div className="space-y-5">
+                      {myActiveBills.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Expenses</p>
+                          {myActiveBills.map((debt) => (
+                            <DebtRow
+                              key={debt.id}
+                              debt={debt}
+                              onSettle={handleSettleDebt}
+                              groupId={groupId}
+                              currentUserId={user?._id}
+                              disableSettleAction={settlingAll}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {otherActiveDebts.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Other Active Group Debts</p>
+                          {otherActiveDebts.map((debt) => (
+                            <DebtRow
+                              key={debt.id}
+                              debt={debt}
+                              onSettle={handleSettleDebt}
+                              groupId={groupId}
+                              currentUserId={user?._id}
+                              disableSettleAction={settlingAll}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {settledDebts.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Settled</p>
+                          {settledDebts.map((debt) => (
+                            <DebtRow
+                              key={debt.id}
+                              debt={debt}
+                              onSettle={handleSettleDebt}
+                              groupId={groupId}
+                              currentUserId={user?._id}
+                              disableSettleAction={settlingAll}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {myActiveBills.length > 1 && (
+                        <div className="mt-2 pt-4 border-t border-[#d6e0ec]">
+                          <div className="bg-[#E2DCE9] border border-[#d2c8e6] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <p className="text-sm font-semibold text-[#5C4E8A]">
+                              Prefer faster settlement? Settle all your open bills at once.
+                            </p>
+                            <button
+                              onClick={handleSettleAllDebts}
+                              disabled={settlingAll}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wide rounded-full hover:bg-slate-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                            >
+                              {settlingAll ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                              {settlingAll ? 'Settling all…' : `Settle All (${myActiveBills.length})`}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>  
                   )}  
                 </section>
@@ -700,6 +854,21 @@ const GroupDetails = () => {
                                 <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#FEF5DC] text-[#B08A20] shadow-sm">
                                   {expense.splitMethod || 'Equal Split'}
                                 </span>
+                                {expense.status === 'failed' && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#FDE8EF] text-[#D9527A] shadow-sm">
+                                    Failed
+                                  </span>
+                                )}
+                                {expense.status === 'settled' && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#E4F2E8] text-[#3D8A55] shadow-sm">
+                                    Settled
+                                  </span>
+                                )}
+                                {expense.status === 'active' && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-white text-slate-600 shadow-sm border border-[#d6e0ec]">
+                                    Pending
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <span className="text-xs font-bold bg-slate-600 text-white px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">
@@ -708,6 +877,11 @@ const GroupDetails = () => {
                           </div>
 
                           <div className="mt-4 pt-3 border-t border-[#d6e0ec]">
+                            {expense.status === 'failed' && (
+                              <div className="mb-3 text-xs font-semibold text-[#D9527A] bg-[#FDE8EF] border border-[#F7C8D8] rounded-lg px-3 py-2">
+                                {expense.failedReason || 'This expense is marked as failed because a participant account was deleted.'}
+                              </div>
+                            )}
                             {expense.splits && expense.splits.length > 0 && (
                               <div className="text-xs text-slate-600 bg-white/50 rounded-xl border border-[#d6e0ec] shadow-inner">
                                 <p className="font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider p-3 pb-0">Splits</p>

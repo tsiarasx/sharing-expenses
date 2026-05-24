@@ -38,6 +38,19 @@ const expenseSchema = new mongoose.Schema({
     type: Object,
     default: null,
   },
+  status: {
+    type: String,
+    enum: ['active', 'settled', 'failed'],
+    default: 'active',
+  },
+  failedReason: {
+    type: String,
+    default: null,
+  },
+  failedAt: {
+    type: Date,
+    default: null,
+  },
   splits: [
     {
       user: {
@@ -48,6 +61,10 @@ const expenseSchema = new mongoose.Schema({
       amountOwed: {
         type: Number,
         required: true,
+      },
+      settledAmount: {
+        type: Number,
+        default: 0,
       }
     }
   ]

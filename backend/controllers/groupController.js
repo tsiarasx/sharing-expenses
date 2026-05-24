@@ -18,6 +18,7 @@ const createGroup = async (req, res) => {
 
     const group = await Group.create({
       name: name.trim(),
+      createdBy: req.user._id,
       members: [
         {
           user: req.user._id,
@@ -27,7 +28,8 @@ const createGroup = async (req, res) => {
     });
 
     const populatedGroup = await Group.findById(group._id)
-      .populate('members.user', 'name email');
+      .populate('members.user', 'name email')
+      .populate('createdBy', 'name email');
 
     res.status(201).json(populatedGroup);
   } catch (error) {
@@ -67,7 +69,8 @@ const getGroupById = async (req, res) => {
 
   try {
     const group = await Group.findById(req.params.id)
-      .populate('members.user', 'name email');
+      .populate('members.user', 'name email')
+      .populate('createdBy', 'name email');
 
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
