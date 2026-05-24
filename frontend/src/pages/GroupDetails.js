@@ -441,6 +441,10 @@ const GroupDetails = () => {
   const myBalance = group?.members.find(  
     (m) => String(m.id) === String(user?._id)  
   )?.balance ?? 0;  
+
+  const hasOtherAcceptedMember = (group?.members || []).some(
+    (member) => member.status === 'accepted' && String(member.id) !== String(user?._id)
+  );
   
   return (  
     <div className="flex flex-col min-h-screen bg-[#F5F7FA] font-sans">
@@ -557,6 +561,10 @@ const GroupDetails = () => {
                     </button> 
                     <button 
                       onClick={() => { 
+                        if (!hasOtherAcceptedMember) {
+                          alert('You need at least one other accepted member before adding an expense.');
+                          return;
+                        }
                         setEditingIndex(null); 
                         setEditingId(null); 
                         setDescription(''); 
@@ -568,7 +576,8 @@ const GroupDetails = () => {
                         setPercentageSplits({}); 
                         setShowExpenseForm(true); 
                       }} 
-                      className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm" 
+                      disabled={!hasOtherAcceptedMember}
+                      className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" 
                     > 
                       Add Expense 
                     </button> 
@@ -882,6 +891,10 @@ const GroupDetails = () => {
               </button>  
               <button  
                 onClick={async () => {  
+                  if (!hasOtherAcceptedMember) {
+                    alert('You need at least one other accepted member before adding an expense.');
+                    return;
+                  }
                   if (!description || !amount || !date) {  
                     alert('Please fill all fields.');  
                     return;  

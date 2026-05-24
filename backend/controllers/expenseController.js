@@ -66,6 +66,16 @@ const createExpense = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to add expenses in this group' });
     }
 
+    const acceptedMemberCount = group.members.filter(
+      (member) => member?.status === 'accepted' && member?.user
+    ).length;
+
+    if (acceptedMemberCount < 2) {
+      return res.status(400).json({
+        message: 'You need at least one other accepted member in the group before adding an expense.',
+      });
+    }
+
     const expense = await Expense.create({
       group: groupId,
       description,

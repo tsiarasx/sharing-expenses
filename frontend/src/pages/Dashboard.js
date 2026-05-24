@@ -173,15 +173,18 @@ const Dashboard = () => {
   const { totalSpending, groupBalances, expenses } = dashboardData; 
  
   const displayGroups = groups
-    .filter((ctxGroup) =>
-      Array.isArray(ctxGroup.members)
-        ? ctxGroup.members.some(
-            (member) =>
-              member?.user?.toString?.() === user?._id?.toString?.() &&
-              member?.status === 'accepted'
-          ) || ctxGroup.members.some((member) => member?.user === user?._id)
-        : true
-    )
+    .filter((ctxGroup) => {
+      if (!Array.isArray(ctxGroup.members)) return true;
+
+      return ctxGroup.members.some((member) => {
+        const memberUserId =
+          typeof member?.user === 'object'
+            ? member?.user?._id?.toString?.()
+            : member?.user?.toString?.();
+
+        return memberUserId === user?._id?.toString?.() && member?.status === 'accepted';
+      });
+    })
     .map((ctxGroup) => {
     const apiBalance = groupBalances.find((gb) => gb.id === ctxGroup._id); 
     const latestGroupActivity = expenses.find((e) => e.groupId === ctxGroup._id);
