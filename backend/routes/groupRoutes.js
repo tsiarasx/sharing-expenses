@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
+
 const {
   createGroup,
   getGroups,
   getGroupById,
-  addMemberToGroup
+  addMemberToGroup,
+  deleteGroup
 } = require('../controllers/groupController');
 
-const { getGroupDashboard } = require('../controllers/dashboardController'); //Dimitra
+const { getGroupDashboard } = require('../controllers/dashboardController');
 
 const { protect } = require('../middleware/authMiddleware');
 
@@ -20,11 +22,12 @@ router.route('/')
   .post(createGroup);
 
 router.route('/:id')
-  .get(getGroupById);
+  .get(getGroupById)
+  .delete(deleteGroup);
 
 router.route('/:id/members')
   .post(addMemberToGroup);
 
-router.get('/:groupId/dashboard', getGroupDashboard); //Dimitra
+router.get('/:groupId/dashboard', getGroupDashboard);
 
 module.exports = router;

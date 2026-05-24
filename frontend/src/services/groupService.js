@@ -24,11 +24,18 @@ const addMemberToGroup = async (groupId, memberData) => {
   return response.data;
 };
 
+// Delete a group
+const deleteGroup = async (groupId) => {
+  const response = await api.delete(`/api/groups/${groupId}`);
+  return response.data;
+};
+
 const groupService = {
   getGroups,
   createGroup,
   getGroupById,
   addMemberToGroup,
+  deleteGroup, // ← προσθήκη
 };
 
 export default groupService;
