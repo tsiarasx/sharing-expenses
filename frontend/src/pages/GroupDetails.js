@@ -821,8 +821,8 @@ const GroupDetails = () => {
                       <input  
                         type="number"  
                         placeholder="0.00"  
-                        value={customSplits[member.name] || ''}  
-                        onChange={(e) => setCustomSplits({ ...customSplits, [member.name]: e.target.value })}  
+                        value={customSplits[member.id] ?? customSplits[member.name] ?? ''}  
+                        onChange={(e) => setCustomSplits({ ...customSplits, [member.id]: e.target.value })}  
                         className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"  
                       />  
                     </div>  
@@ -851,8 +851,8 @@ const GroupDetails = () => {
                         <input  
                           type="number"  
                           placeholder="0"  
-                          value={percentageSplits[member.name] || ''}  
-                          onChange={(e) => setPercentageSplits({ ...percentageSplits, [member.name]: e.target.value })}  
+                          value={percentageSplits[member.id] ?? percentageSplits[member.name] ?? ''}  
+                          onChange={(e) => setPercentageSplits({ ...percentageSplits, [member.id]: e.target.value })}  
                           className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"  
                         />  
                         <span className="text-sm text-gray-500">%</span>  
@@ -864,7 +864,7 @@ const GroupDetails = () => {
                   <div className="space-y-1 mb-3">  
                     {members.map((member) => (  
                       <p key={member.id} className="text-sm text-gray-600">  
-                        {member.name} owes: €{((Number(amount || 0) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2)}  
+                        {member.name} owes: €{((Number(amount || 0) * Number(percentageSplits[member.id] ?? percentageSplits[member.name] ?? 0)) / 100).toFixed(2)}  
                       </p>  
                     ))}  
                   </div>  
@@ -933,9 +933,9 @@ const GroupDetails = () => {
                       if (splitMethod === 'Equal Split') {  
                         amountOwed = Number((Number(amount) / members.length).toFixed(2));  
                       } else if (splitMethod === 'Exact Amounts') {  
-                        amountOwed = Number(customSplits[member.name] || 0);  
+                        amountOwed = Number(customSplits[member.id] ?? customSplits[member.name] ?? 0);  
                       } else if (splitMethod === 'Percentages') {  
-                        amountOwed = Number(((Number(amount) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2));  
+                        amountOwed = Number(((Number(amount) * Number(percentageSplits[member.id] ?? percentageSplits[member.name] ?? 0)) / 100).toFixed(2));  
                       }  
                       return { user: member.id, amountOwed };  
                     }),  
