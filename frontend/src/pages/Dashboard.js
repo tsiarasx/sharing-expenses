@@ -102,6 +102,7 @@ const Dashboard = () => {
           const payerName = item.payerName || item.payer?.name; 
           return { 
             id: item.expenseId || item._id, 
+            groupId: item.groupId, 
             date: item.createdAt, 
             title: item.description, 
             groupName: item.groupName, 
@@ -171,16 +172,28 @@ const Dashboard = () => {
  
   const { totalSpending, groupBalances, expenses } = dashboardData; 
  
-  const displayGroups = groups.map((ctxGroup) => { 
+  const displayGroups = groups
+    .filter((ctxGroup) =>
+      Array.isArray(ctxGroup.members)
+        ? ctxGroup.members.some(
+            (member) =>
+              member?.user?.toString?.() === user?._id?.toString?.() &&
+              member?.status === 'accepted'
+          ) || ctxGroup.members.some((member) => member?.user === user?._id)
+        : true
+    )
+    .map((ctxGroup) => {
     const apiBalance = groupBalances.find((gb) => gb.id === ctxGroup._id); 
+    const latestGroupActivity = expenses.find((e) => e.groupId === ctxGroup._id);
     return { 
       id: ctxGroup._id, 
       name: ctxGroup.name, 
       members: ctxGroup.members, 
       balance: apiBalance?.balance ?? 0, 
       currency: apiBalance?.currency ?? '$', 
+      activityDate: latestGroupActivity?.date || null,
     }; 
-  }); 
+  });
  
   const totalReceivable = groupBalances 
     .filter((g) => g.balance > 0) 
@@ -301,26 +314,35 @@ const Dashboard = () => {
                     <div className="flex-1 bg-white rounded-[32px] p-8 shadow-sm flex flex-col">
                       <h3 className="text-lg font-bold text-slate-700 mb-6">Groups</h3>
                       <div className="space-y-6 flex-1 overflow-y-auto pr-2">
-                        {sortedExpenses.length === 0 ? ( 
-                          <div className="text-gray-400 font-medium text-sm">No recent activity.</div> 
+                        {displayGroups.length === 0 ? ( 
+                          <div className="text-gray-400 font-medium text-sm">No groups yet.</div> 
                         ) : ( 
-                          sortedExpenses.slice(0, 4).map((expense) => ( 
-                            <div key={expense.id} className="flex items-center justify-between"> 
+                          displayGroups.slice(0, 4).map((group) => ( 
+                            <button
+                              type="button"
+                              key={group.id}
+                              onClick={() => navigate(`/groups/${group.id}`)}
+                              className="w-full flex items-center justify-between text-left"
+                            > 
                               <div className="flex items-center gap-4">
                                 <div className="w-2 h-2 rounded-full bg-slate-300"></div>
                                 <div> 
-                                  <h4 className="text-sm font-bold text-slate-700">{expense.title}</h4> 
+                                  <h4 className="text-sm font-bold text-slate-700">{group.name}</h4> 
                                   <p className="text-xs font-medium text-gray-400 mt-1"> 
-                                    {new Date(expense.date).toLocaleDateString('en-GB', { 
+                                    {group.activityDate
+                                      ? `${new Date(group.activityDate).toLocaleDateString('en-GB', {
                                       day: 'numeric', month: 'short' 
-                                    })}, {new Date(expense.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit'})}
+                                    })}, ${new Date(group.activityDate).toLocaleTimeString('en-US', {
+                                      hour: 'numeric', minute: '2-digit'
+                                    })}`
+                                      : 'No activity yet'}
                                   </p> 
                                 </div> 
                               </div>
                               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-600 text-white text-xs font-bold shadow-md"> 
-                                {expense.iOwe ? '-' : '+'}{Math.abs(expense.myShare).toFixed(0)}
+                                {group.balance >= 0 ? '+' : '-'}{Math.abs(group.balance).toFixed(0)}
                               </div> 
-                            </div> 
+                            </button>
                           )) 
                         )} 
                       </div>

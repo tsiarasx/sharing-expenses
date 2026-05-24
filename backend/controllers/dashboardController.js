@@ -11,10 +11,24 @@ const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
 
+    const acceptedGroups = await Group.find({
+      members: {
+        $elemMatch: {
+          user: userId,
+          status: 'accepted',
+        },
+      },
+    })
+      .select('_id name members')
+      .lean();
+
+    const acceptedGroupIds = acceptedGroups.map((g) => g._id);
+
     // Fetch all expenses where the user is involved:
     //   - as the payer, OR
     //   - as a participant in splits
     const expenses = await Expense.find({
+      group: { $in: acceptedGroupIds },
       $or: [{ payer: userId }, { "splits.user": userId }],
     })
       .populate("payer", "name email")
@@ -28,13 +42,14 @@ const getUserDashboard = async (req, res) => {
     // positive = owed money, negative = owes money
     const groupMap = {}; // groupId → { groupName, balance }
 
+    for (const group of acceptedGroups) {
+      const gid = group._id.toString();
+      groupMap[gid] = { groupId: gid, groupName: group.name, balance: 0 };
+    }
+
     for (const expense of expenses) {
       if (!expense.group) continue;
       const gid = expense.group._id.toString();
-
-      if (!groupMap[gid]) {
-        groupMap[gid] = { groupId: gid, groupName: expense.group.name, balance: 0 };
-      }
 
       const payerId = expense.payer?._id?.toString();
       const isPayer = payerId === userId.toString();
@@ -119,6 +134,7 @@ const getUserDashboard = async (req, res) => {
       );
       return {
         expenseId: e._id,
+        groupId: e.group ? e.group._id : null,
         groupName: e.group ? e.group.name : null,
         description: e.description,
         totalAmount: e.totalAmount,

@@ -8,10 +8,10 @@ const sendInvitation = async (req, res) => {
     const { groupId, receiverEmail } = req.body;
 
     const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
 
     const receiver = await User.findOne({ email: receiverEmail });
-    if (!receiver) return res.status(404).json({ message: 'Δεν βρέθηκε χρήστης με αυτό το email.' });
+    if (!receiver) return res.status(404).json({ message: 'No user found with this email.' });
 
     // Ελέγχουμε αν ο χρήστης είναι ήδη μέλος (invited ή accepted)
     const isAlreadyMember = group.members.some(
@@ -19,7 +19,7 @@ const sendInvitation = async (req, res) => {
     );
 
     if (isAlreadyMember) {
-      return res.status(400).json({ message: 'Ο χρήστης είναι ήδη μέλος ή έχει ήδη προσκληθεί.' });
+      return res.status(400).json({ message: 'User is already a member or has already been invited.' });
     }
 
     // Προσθέτουμε τον χρήστη στο Group με status 'invited'
@@ -39,15 +39,15 @@ const sendInvitation = async (req, res) => {
     // Δημιουργούμε Notification με πεδίο relatedGroup
     await Notification.create({
       user: receiver._id,
-      message: `Σας προσκάλεσαν στην ομάδα: ${group.name}`,
+      message: `You have been invited to join group: ${group.name}`,
       type: 'invitation',
       relatedGroup: group._id
     });
 
-    res.status(200).json({ message: 'Η πρόσκληση στάλθηκε επιτυχώς!' });
+    res.status(200).json({ message: 'Invitation sent successfully.' });
   } catch (error) {
     console.error("SEND INVITE ERROR:", error);
-    res.status(500).json({ message: 'Σφάλμα διακομιστή κατά την αποστολή.' });
+    res.status(500).json({ message: 'Server error while sending invitation.' });
   }
 };
 
@@ -67,9 +67,9 @@ const acceptInvitation = async (req, res) => {
     if (!group) {
       const groupExists = await Group.findById(groupId);
       if (!groupExists) {
-        return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
+        return res.status(404).json({ message: 'Group not found.' });
       }
-      return res.status(403).json({ message: 'Δεν έχετε πρόσκληση για αυτή την ομάδα.' });
+      return res.status(403).json({ message: 'You do not have an invitation for this group.' });
     }
 
     // $addToSet avoids duplicates and handles ObjectId/string casting correctly
@@ -84,10 +84,10 @@ const acceptInvitation = async (req, res) => {
       { $set: { isRead: true } }
     );
 
-    res.status(200).json({ message: 'Η πρόσκληση έγινε αποδεκτή!', group });
+    res.status(200).json({ message: 'Invitation accepted.', group });
   } catch (error) {
     console.error("ACCEPT INVITE ERROR:", error);
-    res.status(500).json({ message: 'Σφάλμα διακομιστή κατά την αποδοχή.' });
+    res.status(500).json({ message: 'Server error while accepting invitation.' });
   }
 };
 
@@ -105,7 +105,7 @@ const rejectInvitation = async (req, res) => {
     );
 
     if (!group) {
-      return res.status(404).json({ message: 'Η ομάδα δεν βρέθηκε.' });
+      return res.status(404).json({ message: 'Group not found.' });
     }
 
     // Remove from user's groups array if present
@@ -120,10 +120,10 @@ const rejectInvitation = async (req, res) => {
       { $set: { isRead: true } }
     );
 
-    res.status(200).json({ message: 'Η πρόσκληση απορρίφθηκε.' });
+    res.status(200).json({ message: 'Invitation rejected.' });
   } catch (error) {
     console.error("REJECT INVITE ERROR:", error);
-    res.status(500).json({ message: 'Σφάλμα διακομιστή.' });
+    res.status(500).json({ message: 'Server error.' });
   }
 };
 

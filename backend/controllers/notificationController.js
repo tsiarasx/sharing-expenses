@@ -45,17 +45,17 @@ const sendBulkReminders = async (req, res) => {
     const creditorName = req.user.name; // Αυτός που πατάει το κουμπί
 
     if (!debtorIds || !Array.isArray(debtorIds) || debtorIds.length === 0) {
-      return res.status(400).json({ message: 'Δεν βρέθηκαν οφειλέτες.' });
+      return res.status(400).json({ message: 'No debtors were found.' });
     }
 
     const groupData = await Group.findById(groupId);
-    const groupName = groupData ? groupData.name : 'Ομάδα'; 
+    const groupName = groupData ? groupData.name : 'Group'; 
 
     // Δημιουργούμε ένα promise για κάθε οφειλέτη
     const reminderPromises = debtorIds.map((debtorId) => {
       return Notification.create({
         user: debtorId,
-        message: `Υπενθύμιση: Ο/Η ${creditorName} σας υπενθυμίζει ότι εκκρεμούν οφειλές στην ομάδα ${groupName}.`,
+        message: `Reminder: ${creditorName} reminds you that you have pending debts in group ${groupName}.`,
         type: 'reminder',
         relatedGroup: groupId
       });
@@ -64,10 +64,10 @@ const sendBulkReminders = async (req, res) => {
     // Εκτέλεση όλων μαζί παράλληλα στη βάση
     await Promise.all(reminderPromises);
 
-    res.status(201).json({ message: 'Όλες οι υπενθυμίσεις στάλθηκαν επιτυχώς!' });
+    res.status(201).json({ message: 'All reminders were sent successfully.' });
   } catch (error) {
     console.error("BULK REMINDER ERROR:", error);
-    res.status(500).json({ message: 'Σφάλμα διακομιστή κατά τη μαζική υπενθύμιση.' });
+    res.status(500).json({ message: 'Server error while sending bulk reminders.' });
   }
 };
 

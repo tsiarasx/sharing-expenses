@@ -96,7 +96,7 @@ const createExpense = async (req, res) => {
       const notifPromises = membersToNotify.map((member) => {
         return Notification.create({
           user: member.user,
-          message: `Προστέθηκε νέο έξοδο "${description}" ύψους $${totalAmount} στην ομάδα ${groupName}.`,
+          message: `A new expense "${description}" of $${totalAmount} was added in group ${groupName}.`,
           type: 'expense_added',
           relatedGroup: groupId
         });
