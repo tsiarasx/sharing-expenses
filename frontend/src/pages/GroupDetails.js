@@ -20,11 +20,11 @@ import debtService from '../services/debtService';
 import { sendInvitation } from '../services/invitationService';  
 import NotificationBell from './NotificationBell';  
   
-const formatEuro = (amount) =>  
-  new Intl.NumberFormat("de-DE", {  
-    style: "currency",  
-    currency: "EUR",  
-  }).format(Math.abs(amount));  
+const formatEuro = (amount) =>
+  new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Math.abs(amount));
   
 const safeGetId = (obj) => {  
   if (!obj) return "";  
@@ -633,10 +633,12 @@ const GroupDetails = () => {
                     )}  
                   </div>  
                   {debts.length === 0 ? (  
-                    <div className="bg-white rounded-2xl shadow-sm p-10 text-center">  
-                      <CheckCircle size={40} className="text-[#3D8A55] mx-auto mb-3" />  
-                      <p className="text-gray-600 font-semibold">All settled up!</p>  
-                      <p className="text-gray-400 text-sm mt-1">No outstanding debts in this group.</p>  
+                    <div className="bg-[#EAEFF5] border border-[#d6e0ec] rounded-2xl p-10 text-center text-slate-700 shadow-sm">  
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-white border border-[#d6e0ec] flex items-center justify-center shadow-sm">  
+                        <CheckCircle size={30} className="text-[#3D8A55]" />  
+                      </div>
+                      <p className="font-bold text-slate-700">All settled up!</p>  
+                      <p className="text-slate-500 text-sm mt-1">No outstanding debts in this group.</p>  
                     </div>  
                   ) : (  
                     <div className="space-y-3">  

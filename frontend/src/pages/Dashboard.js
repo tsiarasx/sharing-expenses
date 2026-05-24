@@ -322,7 +322,7 @@ const Dashboard = () => {
                               type="button"
                               key={group.id}
                               onClick={() => navigate(`/groups/${group.id}`)}
-                              className="w-full flex items-center justify-between text-left"
+                              className="w-full flex items-center justify-between text-left rounded-2xl px-4 py-3 border border-transparent hover:border-slate-100 hover:bg-slate-50/80 transition-colors"
                             > 
                               <div className="flex items-center gap-4">
                                 <div className="w-2 h-2 rounded-full bg-slate-300"></div>
@@ -339,7 +339,7 @@ const Dashboard = () => {
                                   </p> 
                                 </div> 
                               </div>
-                              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-600 text-white text-xs font-bold shadow-md"> 
+                              <div className={`flex items-center justify-center min-w-[48px] h-12 rounded-full text-xs font-bold shadow-md ${group.balance >= 0 ? 'bg-slate-600 text-white' : 'bg-[#CBE4FE] text-slate-900'}`}> 
                                 {group.balance >= 0 ? '+' : '-'}{Math.abs(group.balance).toFixed(0)}
                               </div> 
                             </button>
