@@ -70,6 +70,24 @@ const getUserDashboard = async (req, res) => {
       }
     }
 
+    // Track active participants per group from non-failed expenses.
+    const activeParticipantsByGroup = {};
+    for (const expense of expenses) {
+      if (!expense.group) continue;
+      const gid = expense.group._id.toString();
+      if (!activeParticipantsByGroup[gid]) activeParticipantsByGroup[gid] = new Set();
+
+      if (expense.payer?._id) {
+        activeParticipantsByGroup[gid].add(expense.payer._id.toString());
+      }
+
+      for (const split of expense.splits || []) {
+        if (split.user?._id) {
+          activeParticipantsByGroup[gid].add(split.user._id.toString());
+        }
+      }
+    }
+
     // ✅ ΔΙΟΡΘΩΣΗ: Αφαίρεσε τα settlements από τα group balances
     // Ακριβώς όπως κάνει ο calculateDebts στο debtController
     const allGroupIds = Object.keys(groupMap);
@@ -87,12 +105,23 @@ const getUserDashboard = async (req, res) => {
         const gid = s.group.toString();
         if (!groupMap[gid]) continue;
 
-        const isSettlementPayer = s.payer?._id?.toString() === userId.toString();
+        const settlementPayerId = s.payer?._id?.toString();
+        const settlementPayeeId = s.payee?._id?.toString();
+        if (!settlementPayerId || !settlementPayeeId) continue;
+
+        const activeParticipants = activeParticipantsByGroup[gid];
+        if (!activeParticipants) continue;
+        if (!activeParticipants.has(settlementPayerId) || !activeParticipants.has(settlementPayeeId)) {
+          continue;
+        }
+
+        const isSettlementPayer = settlementPayerId === userId.toString();
+        const isSettlementPayee = settlementPayeeId === userId.toString();
 
         if (isSettlementPayer) {
           // Εγώ πλήρωσα → το χρέος μου μειώθηκε → balance αυξάνεται (λιγότερο αρνητικό)
           groupMap[gid].balance += s.amount;
-        } else {
+        } else if (isSettlementPayee) {
           // Κάποιος άλλος μου πλήρωσε → αυτό που μου χρωστούσαν μειώθηκε → balance μειώνεται
           groupMap[gid].balance -= s.amount;
         }

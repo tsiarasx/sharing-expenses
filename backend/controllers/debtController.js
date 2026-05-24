@@ -56,8 +56,10 @@ const calculateDebts = async (req, res) => {
       if (!s.payer?._id || !s.payee?._id) continue;
       const payerId = s.payer._id.toString();
       const payeeId = s.payee._id.toString();
-      ensureUser(payerId, s.payer.name);
-      ensureUser(payeeId, s.payee.name);
+
+      // Do not re-introduce deleted/non-participating users through legacy settlements.
+      // We only apply settlements for users who still exist in active expense balances.
+      if (!balance[payerId] || !balance[payeeId]) continue;
 
       // Ο payer πλήρωσε amount → balance του +amount, balance του payee -amount
       balance[payerId].amount += s.amount;

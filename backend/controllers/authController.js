@@ -171,7 +171,10 @@ const deleteUserProfile = async (req, res) => {
         },
       });
 
-      // Keep settlement records for history/audit; deleted users will simply appear as missing users.
+      // Remove settlements where this user was payer/payee to prevent orphan debt adjustments.
+      await Settlement.deleteMany({
+        $or: [{ payer: userId }, { payee: userId }],
+      });
 
       // Remove user-targeted notifications.
       await Notification.deleteMany({ user: userId });
