@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import debtService from '../services/debtService';
+import { sendBulkDebtReminders } from '../services/invitationService';
 
 /**
  * DebtSummary
@@ -54,6 +55,22 @@ const DebtSummary = ({ groupId }) => {
       console.error(err);
     } finally {
       setSettling(null);
+    }
+  };
+
+  const handleRemindAllClick = async () => {
+    // 1. Μαζεύουμε τα IDs των χρηστών που μας χρωστάνε από το transactions array του Δημήτρη
+    // Στο theyOwe, ο οφειλέτης είναι στο t.from.id
+    const debtorIds = theyOwe.map(t => t.from.id);
+
+    if (debtorIds.length === 0) return;
+
+    try {
+      // 2. Χρησιμοποιούμε το groupId που έρχεται ως prop στο component
+      await sendBulkDebtReminders(debtorIds, groupId);
+      alert('Στάλθηκαν επιτυχώς υπενθυμίσεις σε όλους τους οφειλέτες!');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Αποτυχία αποστολής μαζικών υπενθυμίσεων');
     }
   };
 
@@ -150,6 +167,19 @@ const DebtSummary = ({ groupId }) => {
               <h4 className="text-sm font-semibold text-green-600 mb-2 uppercase tracking-wide">
                 💰 Μου χρωστούν
               </h4>
+
+              {/* ΚΟΥΜΠΙ REMIND ALL */}
+              <button
+                onClick={handleRemindAllClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-100 transition-colors shadow-sm"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                Remind All ({theyOwe.length})
+              </button>
+
               <div className="space-y-2">
                 {theyOwe.map((t, idx) => (
                   <div

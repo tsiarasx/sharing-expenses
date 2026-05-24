@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const Group = require('../models/Group');
 
 const getUserNotifications = async (req, res) => {
   try {
@@ -38,7 +39,40 @@ const markAsRead = async (req, res) => {
   }
 };
 
+const sendBulkReminders = async (req, res) => {
+  try {
+    const { debtorIds, groupId } = req.body;
+    const creditorName = req.user.name; // Αυτός που πατάει το κουμπί
+
+    if (!debtorIds || !Array.isArray(debtorIds) || debtorIds.length === 0) {
+      return res.status(400).json({ message: 'Δεν βρέθηκαν οφειλέτες.' });
+    }
+
+    const groupData = await Group.findById(groupId);
+    const groupName = groupData ? groupData.name : 'Ομάδα'; 
+
+    // Δημιουργούμε ένα promise για κάθε οφειλέτη
+    const reminderPromises = debtorIds.map((debtorId) => {
+      return Notification.create({
+        user: debtorId,
+        message: `Υπενθύμιση: Ο/Η ${creditorName} σας υπενθυμίζει ότι εκκρεμούν οφειλές στην ομάδα ${groupName}.`,
+        type: 'reminder',
+        relatedGroup: groupId
+      });
+    });
+
+    // Εκτέλεση όλων μαζί παράλληλα στη βάση
+    await Promise.all(reminderPromises);
+
+    res.status(201).json({ message: 'Όλες οι υπενθυμίσεις στάλθηκαν επιτυχώς!' });
+  } catch (error) {
+    console.error("BULK REMINDER ERROR:", error);
+    res.status(500).json({ message: 'Σφάλμα διακομιστή κατά τη μαζική υπενθύμιση.' });
+  }
+};
+
 module.exports = {
   getUserNotifications,
-  markAsRead
+  markAsRead,
+  sendBulkReminders
 };

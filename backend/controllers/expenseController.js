@@ -1,3 +1,4 @@
+// ====== MERGE FIX START ======
 const Expense = require('../models/Expense');
 const Group = require('../models/Group');
 const Notification = require('../models/Notification');
@@ -10,17 +11,17 @@ const createExpense = async (req, res) => {
     }
 
     const {
-  groupId,
-  description,
-  totalAmount,
-  date,
-  payer,
-  splitMethod,
-  amountPerMember,
-  customSplits,
-  percentageSplits,
-  splits,
-} = req.body;
+      groupId,
+      description,
+      totalAmount,
+      date,
+      payer,
+      splitMethod,
+      amountPerMember,
+      customSplits,
+      percentageSplits,
+      splits,
+    } = req.body;
 
     if (
       !groupId ||
@@ -66,39 +67,46 @@ const createExpense = async (req, res) => {
     }
 
     const expense = await Expense.create({
-  group: groupId,
-  description,
-  totalAmount,
-  date,
-  payer,
-  splitMethod,
-  amountPerMember,
-  customSplits,
-  percentageSplits,
-  splits: splits.map((split) => ({
-    user: split.user,
-    amountOwed: split.amountOwed,
-  })),
-});
+      group: groupId,
+      description,
+      totalAmount,
+      date,
+      payer,
+      splitMethod,
+      amountPerMember,
+      customSplits,
+      percentageSplits,
+      splits: splits.map((split) => ({
+        user: split.user,
+        amountOwed: split.amountOwed,
+      })),
+    });
 
-    const memberIds = group.members
-      .filter(
-        (member) =>
-          member.status === 'accepted' &&
-          member.user &&
-          member.user.toString() !== req.user._id.toString()
-      )
-      .map((member) => member.user);
+    try {
+      // Βρίσκουμε το όνομα του group για να το βάλουμε στο μήνυμα
+      const groupData = await Group.findById(groupId);
+      const groupName = groupData ? groupData.name : 'Group';
 
-    if (memberIds.length > 0) {
-      await Notification.insertMany(
-        memberIds.map((memberId) => ({
-          user: memberId,
-          message: `New expense added in ${group.name}: ${description}`,
-          type: 'expense_added',
-          relatedGroup: group._id,
-        }))
+      // Φιλτράρουμε τη λίστα splits ώστε να μην στείλουμε ειδοποίηση στον εαυτό μας (payer)
+      const membersToNotify = splits.filter(
+        (s) => s.user.toString() !== payer.toString()
       );
+
+      // Δημιουργούμε τις ειδοποιήσεις για όλα τα υπόλοιπα μέλη παράλληλα
+      const notifPromises = membersToNotify.map((member) => {
+        return Notification.create({
+          user: member.user,
+          message: `Προστέθηκε νέο έξοδο "${description}" ύψους $${totalAmount} στην ομάδα ${groupName}.`,
+          type: 'expense_added',
+          relatedGroup: groupId
+        });
+      });
+
+      await Promise.all(notifPromises);
+    } catch (notifError) {
+      // Αν για οποιοδήποτε λόγο αποτύχει η ειδοποίηση, κάνουμε console.log 
+      // αλλά ΔΕΝ κρασάρουμε το request, ώστε ο χρήστης να αποθηκεύσει κανονικά το έξοδο.
+      console.error("Error creating notifications for expense:", notifError);
     }
 
     res.status(201).json(expense);
@@ -120,6 +128,7 @@ const getGroupExpenses = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 const deleteExpense = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
@@ -135,6 +144,7 @@ const deleteExpense = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 const updateExpense = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
@@ -159,9 +169,11 @@ const updateExpense = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 module.exports = {
   createExpense,
   getGroupExpenses,
   deleteExpense,
   updateExpense,
 };
+// ====== MERGE FIX END ======

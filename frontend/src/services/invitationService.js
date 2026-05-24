@@ -50,3 +50,21 @@ export const getNotifications = async () => {
     );
     return response.data;
 };
+
+export const markNotificationAsRead = async (notificationId) => {
+    const response = await axios.put(
+        `${API_URL}/api/notifications/${notificationId}/read`,
+        {},
+        getConfig()
+    );
+    return response.data;
+};
+
+export const sendBulkDebtReminders = async (debtorIds, groupId) => {
+    const response = await axios.post(
+        `${API_URL}/api/notifications/remind-all`,
+        { debtorIds, groupId },
+        getConfig()
+    );
+    return response.data;
+}
