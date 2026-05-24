@@ -20,6 +20,11 @@ const settlementSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  expense: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Expense',
+    required: false,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settlement', settlementSchema);

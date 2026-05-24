@@ -68,9 +68,9 @@ const DebtSummary = ({ groupId }) => {
     try {
       // 2. Χρησιμοποιούμε το groupId που έρχεται ως prop στο component
       await sendBulkDebtReminders(debtorIds, groupId);
-      alert('Στάλθηκαν επιτυχώς υπενθυμίσεις σε όλους τους οφειλέτες!');
+      alert('Reminders were sent successfully to all debtors.');
     } catch (error) {
-      alert(error.response?.data?.message || 'Αποτυχία αποστολής μαζικών υπενθυμίσεων');
+      alert(error.response?.data?.message || 'Failed to send bulk reminders.');
     }
   };
 

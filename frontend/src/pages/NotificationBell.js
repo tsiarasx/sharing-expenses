@@ -8,6 +8,24 @@ const NotificationBell = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const toEnglishNotificationMessage = (message = '') => {
+    if (message.startsWith('Σας προσκάλεσαν στην ομάδα:')) {
+      return message.replace('Σας προσκάλεσαν στην ομάδα:', 'You have been invited to join group:');
+    }
+    if (message.startsWith('Προστέθηκε νέο έξοδο')) {
+      return message
+        .replace('Προστέθηκε νέο έξοδο', 'A new expense')
+        .replace('ύψους', 'of')
+        .replace('στην ομάδα', 'in group');
+    }
+    if (message.startsWith('Υπενθύμιση:')) {
+      return message
+        .replace('Υπενθύμιση:', 'Reminder:')
+        .replace('σας υπενθυμίζει ότι εκκρεμούν οφειλές στην ομάδα', 'reminds you that you have pending debts in group');
+    }
+    return message;
+  };
+
   // Φέρνει τις ειδοποιήσεις από το API
   const fetchNotifications = async () => {
     try {
@@ -60,22 +78,22 @@ const NotificationBell = () => {
   const handleAccept = async (groupId) => {
     try {
       await acceptInvitation(groupId);
-      alert('Επιτυχής συμμετοχή στην ομάδα!');
+      alert('Successfully joined group.');
       fetchNotifications();
       setShowDropdown(false);
       navigate(`/groups/${groupId}`);
     } catch (error) {
-      alert(error.response?.data?.message || 'Σφάλμα κατά την αποδοχή');
+      alert(error.response?.data?.message || 'Error while accepting invitation.');
     }
   };
 
   const handleReject = async (groupId) => {
     try {
       await rejectInvitation(groupId);
-      alert('Η πρόσκληση απορρίφθηκε.');
+      alert('Invitation rejected.');
       fetchNotifications();
     } catch (error) {
-      alert(error.response?.data?.message || 'Σφάλμα κατά την απόρριψη');
+      alert(error.response?.data?.message || 'Error while rejecting invitation.');
     }
   };
 
@@ -117,16 +135,16 @@ const NotificationBell = () => {
       {showDropdown && (
         <div className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50 max-h-96 overflow-y-auto">
           <div className="px-4 py-2 font-semibold text-sm text-gray-700 border-b border-gray-100 flex justify-between items-center">
-            <span>Ειδοποιήσεις</span>
+            <span>Notifications</span>
             {unreadCount > 0 && (
-              <span className="text-xs text-blue-600 font-normal">{unreadCount} νέες</span>
+              <span className="text-xs text-blue-600 font-normal">{unreadCount} new</span>
             )}
           </div>
           
           <div className="divide-y divide-gray-50">
             {notifications.length === 0 ? (
               <div className="px-4 py-6 text-sm text-gray-500 text-center">
-                Δεν υπάρχουν ειδοποιήσεις.
+                No notifications.
               </div>
             ) : (
               notifications.map((notif) => (
@@ -136,14 +154,14 @@ const NotificationBell = () => {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 border rounded ${getBadgeStyle(notif.type)}`}>
-                      {notif.type === 'expense_added' ? 'ΝΕΟ ΕΞΟΔΟ' : notif.type === 'invitation' ? 'ΠΡΟΣΚΛΗΣΗ' : 'ΥΠΕΝΘΥΜΙΣΗ'}
+                      {notif.type === 'expense_added' ? 'NEW EXPENSE' : notif.type === 'invitation' ? 'INVITATION' : 'REMINDER'}
                     </span>
                     <span className="text-[10px] text-gray-400">
-                      {new Date(notif.createdAt).toLocaleDateString('el-GR')}
+                      {new Date(notif.createdAt).toLocaleDateString('en-GB')}
                     </span>
                   </div>
                   
-                  <p className="text-xs text-gray-800 font-medium mb-2">{notif.message}</p>
+                  <p className="text-xs text-gray-800 font-medium mb-2">{toEnglishNotificationMessage(notif.message)}</p>
                   
                   {/* Κουμπιά Accept/Decline ΜΟΝΟ για εκκρεμείς προσκλήσεις */}
                   {notif.type === 'invitation' && !notif.isRead && (
@@ -152,13 +170,13 @@ const NotificationBell = () => {
                         onClick={() => handleAccept(notif.relatedGroup?._id)}
                         className="px-3 py-1 bg-blue-700 text-white text-[11px] font-semibold rounded hover:bg-blue-800 transition-colors"
                       >
-                        Αποδοχή
+                        Accept
                       </button>
                       <button 
                         onClick={() => handleReject(notif.relatedGroup?._id)}
                         className="px-3 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded hover:bg-gray-200 transition-colors"
                       >
-                        Απόρριψη
+                        Decline
                       </button>
                     </div>
                   )}

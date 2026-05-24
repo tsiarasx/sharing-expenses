@@ -16,7 +16,7 @@ const calculateDebts = async (req, res) => {
     const { groupId } = req.params;
 
     // --- 1. Φόρτωσε όλα τα expenses της ομάδας ---
-    const expenses = await Expense.find({ group: groupId })
+    const expenses = await Expense.find({ group: groupId, status: { $ne: 'failed' } })
       .populate('payer', 'name email')
       .populate('splits.user', 'name email');
 
@@ -56,8 +56,10 @@ const calculateDebts = async (req, res) => {
       if (!s.payer?._id || !s.payee?._id) continue;
       const payerId = s.payer._id.toString();
       const payeeId = s.payee._id.toString();
-      ensureUser(payerId, s.payer.name);
-      ensureUser(payeeId, s.payee.name);
+
+      // Do not re-introduce deleted/non-participating users through legacy settlements.
+      // We only apply settlements for users who still exist in active expense balances.
+      if (!balance[payerId] || !balance[payeeId]) continue;
 
       // Ο payer πλήρωσε amount → balance του +amount, balance του payee -amount
       balance[payerId].amount += s.amount;
@@ -116,7 +118,7 @@ const calculateDebts = async (req, res) => {
 const recordSettlement = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { payeeId, amount } = req.body;
+    const { payeeId, amount, expenseId } = req.body;
 
     if (!payeeId || !amount || amount <= 0) {
       return res.status(400).json({ message: 'payeeId and a positive amount are required' });
@@ -127,7 +129,37 @@ const recordSettlement = async (req, res) => {
       payer: req.user._id,   // ο logged-in χρήστης πλήρωσε
       payee: payeeId,
       amount: Math.round(Number(amount) * 100) / 100,
+      expense: expenseId || undefined,
     });
+
+    if (expenseId) {
+      const expense = await Expense.findById(expenseId);
+
+      if (expense && expense.group.toString() === groupId.toString()) {
+        const currentUserId = req.user._id.toString();
+
+        const split = expense.splits.find(
+          (s) => s.user && s.user.toString() === currentUserId
+        );
+
+        if (split) {
+          const nextSettled = Math.min(
+            Number(split.amountOwed || 0),
+            Number(split.settledAmount || 0) + Number(amount)
+          );
+          split.settledAmount = Math.round(nextSettled * 100) / 100;
+
+          const unsettledSplits = expense.splits.filter((s) => {
+            const isPayerSplit = expense.payer && s.user && s.user.toString() === expense.payer.toString();
+            if (isPayerSplit) return false;
+            return Number(s.settledAmount || 0) + 0.01 < Number(s.amountOwed || 0);
+          });
+
+          expense.status = unsettledSplits.length === 0 ? 'settled' : 'active';
+          await expense.save();
+        }
+      }
+    }
 
     const populated = await Settlement.findById(settlement._id)
       .populate('payer', 'name email')

@@ -11,10 +11,25 @@ const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
 
+    const acceptedGroups = await Group.find({
+      members: {
+        $elemMatch: {
+          user: userId,
+          status: 'accepted',
+        },
+      },
+    })
+      .select('_id name members')
+      .lean();
+
+    const acceptedGroupIds = acceptedGroups.map((g) => g._id);
+
     // Fetch all expenses where the user is involved:
     //   - as the payer, OR
     //   - as a participant in splits
     const expenses = await Expense.find({
+      group: { $in: acceptedGroupIds },
+      status: { $ne: 'failed' },
       $or: [{ payer: userId }, { "splits.user": userId }],
     })
       .populate("payer", "name email")
@@ -28,13 +43,14 @@ const getUserDashboard = async (req, res) => {
     // positive = owed money, negative = owes money
     const groupMap = {}; // groupId → { groupName, balance }
 
+    for (const group of acceptedGroups) {
+      const gid = group._id.toString();
+      groupMap[gid] = { groupId: gid, groupName: group.name, balance: 0 };
+    }
+
     for (const expense of expenses) {
       if (!expense.group) continue;
       const gid = expense.group._id.toString();
-
-      if (!groupMap[gid]) {
-        groupMap[gid] = { groupId: gid, groupName: expense.group.name, balance: 0 };
-      }
 
       const payerId = expense.payer?._id?.toString();
       const isPayer = payerId === userId.toString();
@@ -51,6 +67,24 @@ const getUserDashboard = async (req, res) => {
           (s) => s.user?._id && s.user._id.toString() === userId.toString()
         );
         if (userSplit) groupMap[gid].balance -= userSplit.amountOwed;
+      }
+    }
+
+    // Track active participants per group from non-failed expenses.
+    const activeParticipantsByGroup = {};
+    for (const expense of expenses) {
+      if (!expense.group) continue;
+      const gid = expense.group._id.toString();
+      if (!activeParticipantsByGroup[gid]) activeParticipantsByGroup[gid] = new Set();
+
+      if (expense.payer?._id) {
+        activeParticipantsByGroup[gid].add(expense.payer._id.toString());
+      }
+
+      for (const split of expense.splits || []) {
+        if (split.user?._id) {
+          activeParticipantsByGroup[gid].add(split.user._id.toString());
+        }
       }
     }
 
@@ -71,12 +105,23 @@ const getUserDashboard = async (req, res) => {
         const gid = s.group.toString();
         if (!groupMap[gid]) continue;
 
-        const isSettlementPayer = s.payer?._id?.toString() === userId.toString();
+        const settlementPayerId = s.payer?._id?.toString();
+        const settlementPayeeId = s.payee?._id?.toString();
+        if (!settlementPayerId || !settlementPayeeId) continue;
+
+        const activeParticipants = activeParticipantsByGroup[gid];
+        if (!activeParticipants) continue;
+        if (!activeParticipants.has(settlementPayerId) || !activeParticipants.has(settlementPayeeId)) {
+          continue;
+        }
+
+        const isSettlementPayer = settlementPayerId === userId.toString();
+        const isSettlementPayee = settlementPayeeId === userId.toString();
 
         if (isSettlementPayer) {
           // Εγώ πλήρωσα → το χρέος μου μειώθηκε → balance αυξάνεται (λιγότερο αρνητικό)
           groupMap[gid].balance += s.amount;
-        } else {
+        } else if (isSettlementPayee) {
           // Κάποιος άλλος μου πλήρωσε → αυτό που μου χρωστούσαν μειώθηκε → balance μειώνεται
           groupMap[gid].balance -= s.amount;
         }
@@ -119,6 +164,7 @@ const getUserDashboard = async (req, res) => {
       );
       return {
         expenseId: e._id,
+        groupId: e.group ? e.group._id : null,
         groupName: e.group ? e.group.name : null,
         description: e.description,
         totalAmount: e.totalAmount,
@@ -161,17 +207,28 @@ const getGroupDashboard = async (req, res) => {
     // ── A. groupDetails ───────────────────────────────
     const group = await Group.findById(groupId)
       .populate("members.user", "name email")
+      .populate("createdBy", "name email")
       .lean();
 
     if (!group) {
       return res.status(404).json({ success: false, message: "Group not found" });
     }
 
+    const acceptedMembers = (group.members || []).filter((m) => m.user);
+    const fallbackCreator = acceptedMembers.find((m) => m.status === 'accepted')?.user || null;
+    const creator = group.createdBy || fallbackCreator;
+
     const groupDetails = {
       groupId: group._id,
       name: group.name,
-      members: group.members
-        .filter((m) => m.user)
+      createdBy: creator
+        ? {
+            userId: creator._id,
+            name: creator.name,
+            email: creator.email,
+          }
+        : null,
+      members: acceptedMembers
         .map((m) => ({
           userId: m.user._id,
           name: m.user.name,
@@ -181,7 +238,7 @@ const getGroupDashboard = async (req, res) => {
     };
 
     // ── B. totalGroupExpenses ─────────────────────────
-    const expenses = await Expense.find({ group: groupId })
+    const expenses = await Expense.find({ group: groupId, status: { $ne: 'failed' } })
       .populate("payer", "name email")
       .populate("splits.user", "name email")
       .lean();

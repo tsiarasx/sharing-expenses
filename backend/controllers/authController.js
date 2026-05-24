@@ -82,26 +82,64 @@ const updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
-    if (user) {
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
-      if (req.body.password) {
-        user.password = req.body.password;
-      }
-
-      const updatedUser = await user.save();
-
-      res.json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        token: generateToken(updatedUser._id),
-      });
-    } else {
-      res.status(404).json({ message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    const nextName = typeof req.body.name === 'string' ? req.body.name.trim() : user.name;
+    const nextEmail = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : user.email;
+    const nextPassword = typeof req.body.password === 'string' ? req.body.password.trim() : '';
+
+    if (!nextName) {
+      return res.status(400).json({ message: 'Name is required' });
+    }
+
+    if (!nextEmail) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(nextEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address' });
+    }
+
+    if (nextEmail !== user.email) {
+      const emailOwner = await User.findOne({ email: nextEmail, _id: { $ne: user._id } });
+      if (emailOwner) {
+        return res.status(400).json({ message: 'Email is already in use' });
+      }
+    }
+
+    if (nextPassword && nextPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    user.name = nextName;
+    user.email = nextEmail;
+    if (nextPassword) {
+      user.password = nextPassword;
+    }
+
+    const updatedUser = await user.save();
+
+    return res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      token: generateToken(updatedUser._id),
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('[updateUserProfile] Error:', error);
+    if (error?.code === 11000) {
+      return res.status(400).json({ message: 'Email is already in use' });
+    }
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message });
+    }
+    return res.status(500).json({
+      message: 'Server error while updating profile',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+    });
   }
 };
 
@@ -121,12 +159,19 @@ const deleteUserProfile = async (req, res) => {
         { $pull: { members: { user: userId } } }
       );
 
-      // Remove expenses that contain the deleted user as payer or participant.
-      await Expense.deleteMany({
+      // Mark expenses involving this user as failed instead of deleting shared history.
+      await Expense.updateMany({
+        status: { $in: ['active'] },
         $or: [{ payer: userId }, { 'splits.user': userId }],
+      }, {
+        $set: {
+          status: 'failed',
+          failedReason: 'A participant in this expense deleted their account',
+          failedAt: new Date(),
+        },
       });
 
-      // Remove settlements involving the deleted user.
+      // Remove settlements where this user was payer/payee to prevent orphan debt adjustments.
       await Settlement.deleteMany({
         $or: [{ payer: userId }, { payee: userId }],
       });

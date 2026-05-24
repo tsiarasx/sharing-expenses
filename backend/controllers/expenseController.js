@@ -66,6 +66,16 @@ const createExpense = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to add expenses in this group' });
     }
 
+    const acceptedMemberCount = group.members.filter(
+      (member) => member?.status === 'accepted' && member?.user
+    ).length;
+
+    if (acceptedMemberCount < 2) {
+      return res.status(400).json({
+        message: 'You need at least one other accepted member in the group before adding an expense.',
+      });
+    }
+
     const expense = await Expense.create({
       group: groupId,
       description,
@@ -79,6 +89,7 @@ const createExpense = async (req, res) => {
       splits: splits.map((split) => ({
         user: split.user,
         amountOwed: split.amountOwed,
+        settledAmount: 0,
       })),
     });
 
@@ -96,7 +107,7 @@ const createExpense = async (req, res) => {
       const notifPromises = membersToNotify.map((member) => {
         return Notification.create({
           user: member.user,
-          message: `Προστέθηκε νέο έξοδο "${description}" ύψους $${totalAmount} στην ομάδα ${groupName}.`,
+          message: `A new expense "${description}" of $${totalAmount} was added in group ${groupName}.`,
           type: 'expense_added',
           relatedGroup: groupId
         });
@@ -123,7 +134,35 @@ const getGroupExpenses = async (req, res) => {
       .populate('splits.user', 'name email')
       .sort({ createdAt: -1 });
 
-    res.json(expenses);
+    // Keep history visible and flag records impacted by deleted users as failed.
+    const normalizedExpenses = expenses.map((expense) => {
+      const raw = expense.toObject();
+      const hasDeletedPayer = !raw.payer;
+      const hasDeletedSplitUser = Array.isArray(raw.splits)
+        ? raw.splits.some((split) => !split.user)
+        : false;
+
+      // Preserve explicit settled records even if a user account was later deleted.
+      if (raw.status === 'settled') {
+        return raw;
+      }
+
+      // Force failed only for non-settled expenses impacted by deleted participants.
+      if (raw.status === 'failed' || hasDeletedPayer || hasDeletedSplitUser) {
+        return {
+          ...raw,
+          status: 'failed',
+          failedReason:
+            raw.failedReason ||
+            'This expense was marked as failed because a participant deleted their account.',
+          failedAt: raw.failedAt || raw.updatedAt || raw.createdAt,
+        };
+      }
+
+      return raw;
+    });
+
+    res.json(normalizedExpenses);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
