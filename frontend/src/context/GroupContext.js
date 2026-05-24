@@ -2,7 +2,6 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AuthContext } from './AuthContext';
 import groupService from '../services/groupService';
 
-
 export const GroupContext = createContext();
 
 export const GroupProvider = ({ children }) => {
@@ -11,7 +10,6 @@ export const GroupProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch groups when user is available
   useEffect(() => {
     if (user && user.token) {
       fetchGroups();
@@ -70,12 +68,27 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const updatedGroup = await groupService.addMemberToGroup(groupId, memberData);
-      // Update the group in the local state
       setGroups(groups.map(g => g._id === groupId ? updatedGroup : g));
       return updatedGroup;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add member');
       console.error('Error adding member:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── ΠΡΟΣΘΗΚΗ: deleteGroup ──────────────────────────────────────────────────
+  const deleteGroup = async (groupId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await groupService.deleteGroup(groupId);
+      setGroups(prev => prev.filter(g => g._id !== groupId));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete group');
+      console.error('Error deleting group:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -90,6 +103,7 @@ export const GroupProvider = ({ children }) => {
     createGroup,
     getGroupById,
     addMemberToGroup,
+    deleteGroup, // ← προσθήκη
   };
 
   return (

@@ -1,46 +1,93 @@
+// ====== MERGE FIX START ======
 const Expense = require('../models/Expense');
-const Notification = require('../models/Notification');
 const Group = require('../models/Group');
+const Notification = require('../models/Notification');
+const mongoose = require('mongoose');
 
 const createExpense = async (req, res) => {
   try {
-    const {
-  groupId,
-  description,
-  totalAmount,
-  date,
-  payer,
-  splitMethod,
-  amountPerMember,
-  customSplits,
-  percentageSplits,
-  splits,
-} = req.body;
+    if (!req.user?._id) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
 
-    if (!groupId || !description || !totalAmount || !payer || !splits) {
+    const {
+      groupId,
+      description,
+      totalAmount,
+      date,
+      payer,
+      splitMethod,
+      amountPerMember,
+      customSplits,
+      percentageSplits,
+      splits,
+    } = req.body;
+
+    if (
+      !groupId ||
+      !description ||
+      !totalAmount ||
+      !payer ||
+      !Array.isArray(splits) ||
+      splits.length === 0
+    ) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const expense = await Expense.create({
-  group: groupId,
-  description,
-  totalAmount,
-  date,
-  payer,
-  splitMethod,
-  amountPerMember,
-  customSplits,
-  percentageSplits,
-  splits,
-});
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(payer)) {
+      return res.status(400).json({ message: 'Invalid group or payer id' });
+    }
 
-try {
+    const hasInvalidSplit = splits.some(
+      (split) =>
+        !split ||
+        !mongoose.Types.ObjectId.isValid(split.user) ||
+        typeof split.amountOwed !== 'number' ||
+        Number.isNaN(split.amountOwed)
+    );
+
+    if (hasInvalidSplit) {
+      return res.status(400).json({ message: 'Invalid split data' });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const isAcceptedMember = group.members.some(
+      (member) =>
+        member.status === 'accepted' &&
+        member.user &&
+        member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isAcceptedMember) {
+      return res.status(403).json({ message: 'Not authorized to add expenses in this group' });
+    }
+
+    const expense = await Expense.create({
+      group: groupId,
+      description,
+      totalAmount,
+      date,
+      payer,
+      splitMethod,
+      amountPerMember,
+      customSplits,
+      percentageSplits,
+      splits: splits.map((split) => ({
+        user: split.user,
+        amountOwed: split.amountOwed,
+      })),
+    });
+
+    try {
       // Βρίσκουμε το όνομα του group για να το βάλουμε στο μήνυμα
       const groupData = await Group.findById(groupId);
       const groupName = groupData ? groupData.name : 'Group';
 
       // Φιλτράρουμε τη λίστα splits ώστε να μην στείλουμε ειδοποίηση στον εαυτό μας (payer)
-      // Στο splits, κάθε αντικείμενο έχει τη δομή { user: userId, amountOwed: X }
       const membersToNotify = splits.filter(
         (s) => s.user.toString() !== payer.toString()
       );
@@ -64,6 +111,7 @@ try {
 
     res.status(201).json(expense);
   } catch (error) {
+    console.error('createExpense error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -80,6 +128,7 @@ const getGroupExpenses = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 const deleteExpense = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
@@ -95,6 +144,7 @@ const deleteExpense = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 const updateExpense = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
@@ -119,9 +169,11 @@ const updateExpense = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 module.exports = {
   createExpense,
   getGroupExpenses,
   deleteExpense,
   updateExpense,
 };
+// ====== MERGE FIX END ======
