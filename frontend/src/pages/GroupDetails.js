@@ -17,7 +17,7 @@ import {
 import { AuthContext } from "../context/AuthContext";  
 import expenseService from '../services/expenseService';  
 import debtService from '../services/debtService';  
-import { sendInvitation } from '../services/invitationService';  
+import { sendInvitation, sendBulkDebtReminders } from '../services/invitationService';  
 import NotificationBell from './NotificationBell';  
   
 const formatEuro = (amount) =>
@@ -534,6 +534,28 @@ const GroupDetails = () => {
   const hasOtherAcceptedMember = (group?.members || []).some(
     (member) => member.status === 'accepted' && String(member.id) !== String(user?._id)
   );
+
+  const handleRemindAllClick = async () => {
+    // 1. Παίρνουμε όλα τα μοναδικά IDs των οφειλετών από τα ενεργά χρέη της ομάδας
+    const debtorIds = [...new Set(activeDebts.map(d => d.debtorId))];
+
+    // Φιλτράρουμε να μην στείλουμε κατά λάθος ειδοποίηση στον εαυτό μας
+    const otherDebtorIds = debtorIds.filter(id => String(id) !== String(user?._id));
+
+    if (otherDebtorIds.length === 0) {
+      alert("There are no other pending debtors to remind!");
+      return;
+    }
+
+    try {
+      // groupId έρχεται έτοιμο από το useParams() στην κορυφή του component
+      await sendBulkDebtReminders(otherDebtorIds, groupId);
+      alert('Reminders sent successfully to all active debtors!');
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Failed to send bulk reminders.');
+    }
+  };
   
   return (  
     <div className="flex flex-col min-h-screen bg-[#F5F7FA] font-sans">
@@ -767,7 +789,23 @@ const GroupDetails = () => {
 
                       {otherActiveDebts.length > 0 && (
                         <div className="space-y-3">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Other Active Group Debts</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                              Other Active Group Debts
+                            </p>
+                            
+                            {/* ✅ ΤΟ ΚΟΥΜΠΙ REMIND ALL */}
+                            <button
+                              onClick={handleRemindAllClick}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F3E8D5] border border-[#e2d4bc] text-[#8C7558] rounded-full text-[11px] font-bold uppercase tracking-wide hover:bg-[#ebdcc3] active:scale-95 transition-all shadow-sm"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                              </svg>
+                              Remind All
+                            </button>
+                          </div>
                           {otherActiveDebts.map((debt) => (
                             <DebtRow
                               key={debt.id}
