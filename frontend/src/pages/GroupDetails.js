@@ -1,15 +1,239 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import {
+  Users,
+  Receipt,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  Euro,
+  UserCircle,
+  Loader2,
+  ChevronLeft,
+} from "lucide-react";
+import { AuthContext } from "../context/AuthContext";
 import expenseService from '../services/expenseService';
-import { AuthContext } from '../context/AuthContext';
 import { sendInvitation } from '../services/invitationService';
 import NotificationBell from './NotificationBell';
 import DebtSummary from './DebtSummary';
+// ─────────────────────────────────────────────
+// HELPER — Format a number as a Euro amount
+// ─────────────────────────────────────────────
+const formatEuro = (amount) =>
+  new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Math.abs(amount));
 
-const GroupDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+// ─────────────────────────────────────────────
+// HELPER — Safely extract a string ID
+// ─────────────────────────────────────────────
+const safeGetId = (obj) => {
+  if (!obj) return "";
+  if (obj._id) return obj._id.toString();
+  if (obj.id) return obj.id.toString();
+  return obj.toString();
+};
+
+// ─────────────────────────────────────────────
+// HELPER — Transform backend response
+// ─────────────────────────────────────────────
+const transformGroupData = (data) => {
+  const groupDetails = data.groupDetails || {};
+  const members = groupDetails.members || [];
+  const debts = data.debts || [];
+  const totalGroupExpenses = data.totalGroupExpenses ?? 0;
+
+  const balanceMap = {};
+  members.forEach((m) => {
+    const id = safeGetId(m);
+    if (id) balanceMap[id] = 0;
+  });
+
+  debts.forEach((debt) => {
+    const debtorKey = safeGetId(debt.debtorId);
+    const creditorKey = safeGetId(debt.creditorId);
+    if (debtorKey && debtorKey in balanceMap) balanceMap[debtorKey] -= debt.amount;
+    if (creditorKey && creditorKey in balanceMap) balanceMap[creditorKey] += debt.amount;
+  });
+
+  const totalBalance = Object.values(balanceMap).reduce((sum, v) => sum + v, 0);
+
+  return {
+    id: groupDetails._id || "unknown",
+    name: groupDetails.name || "Unnamed Group",
+    totalExpenses: totalGroupExpenses,
+    totalBalance,
+    members: members.map((m) => {
+      const id = safeGetId(m);
+      return {
+        id,
+        name: m.name || "Unknown Member",
+        email: m.email || "",
+        balance: balanceMap[id] ?? 0,
+      };
+    }),
+    debts: debts.map((d) => ({
+      id: d._id || crypto.randomUUID(),
+      debtorId: d.debtorId,
+      debtorName: d.debtorName || "Unknown",
+      creditorId: d.creditorId,
+      creditorName: d.creditorName || "Unknown",
+      amount: d.amount ?? 0,
+      settled: d.settled ?? false,
+    })),
+  };
+};
+
+// ─────────────────────────────────────────────
+// SUB-COMPONENT — Stat card
+// ─────────────────────────────────────────────
+const StatCard = ({ icon: Icon, label, value, iconBg, iconColor }) => (
+  <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow duration-200">
+    <div className={`p-3 rounded-xl ${iconBg}`}>
+      <Icon size={22} className={iconColor} />
+    </div>
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</p>
+      <p className="text-xl font-bold text-gray-800 mt-0.5">{value}</p>
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────
+// SUB-COMPONENT — Member card
+// ─────────────────────────────────────────────
+const MemberCard = ({ member }) => {
+  const isPositive = member.balance >= 0;
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+          <span className="text-indigo-600 font-semibold text-sm">
+            {member.name.split(" ").map((n) => n[0]).join("")}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-800 text-sm truncate">{member.name}</p>
+          <p className="text-xs text-gray-400 truncate">{member.email}</p>
+        </div>
+      </div>
+      <div
+        className={`flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-xs font-semibold ${
+          isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+        }`}
+      >
+        {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+        {isPositive ? "Gets back" : "Owes"} {formatEuro(member.balance)}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// SUB-COMPONENT — Debt row
+// ─────────────────────────────────────────────
+const DebtRow = ({ debt, onSettle }) => {
+  const [settling, setSettling] = useState(false);
   const { user } = useContext(AuthContext);
+
+  const handleSettle = async () => {
+    setSettling(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/debts/${debt.id}/settle`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to settle debt");
+      onSettle(debt.id);
+    } catch (err) {
+      console.error("Settle error:", err.message);
+    } finally {
+      setSettling(false);
+    }
+  };
+
+  if (debt.settled) {
+    return (
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+        <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />
+        <span className="text-sm text-emerald-700 font-medium">
+          {debt.debtorName} → {debt.creditorName}&nbsp;|&nbsp;
+          {formatEuro(debt.amount)} — Settled
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+          <span className="text-red-500 font-semibold text-xs">
+            {debt.debtorName.split(" ").map((n) => n[0]).join("")}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-700 truncate">
+            <span className="text-red-500">{debt.debtorName}</span>
+            <span className="text-gray-400 mx-1.5">owes</span>
+            <span className="text-emerald-600">{debt.creditorName}</span>
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+            <Clock size={11} />
+            Pending settlement
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span className="text-sm font-bold text-gray-800 flex items-center gap-1">
+          <Euro size={13} className="text-gray-400" />
+          {formatEuro(debt.amount).replace("€", "")}
+        </span>
+        <button
+          onClick={handleSettle}
+          disabled={settling}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {settling ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+          {settling ? "Settling…" : "Settle Up"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// LOADING SKELETON
+// ─────────────────────────────────────────────
+const LoadingSkeleton = () => (
+  <div className="flex-1 overflow-y-auto p-10 animate-pulse">
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="h-8 bg-gray-200 rounded-xl w-64" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-24 bg-gray-200 rounded-2xl" />
+        ))}
+      </div>
+      <div className="h-64 bg-gray-200 rounded-2xl" />
+      <div className="h-48 bg-gray-200 rounded-2xl" />
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────
+// MAIN COMPONENT — GroupDetails
+// ─────────────────────────────────────────────
+const GroupDetails = () => {
+  const { id: groupId } = useParams();
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   // States for Expenses and Group Info
   const [members, setMembers] = useState([]);
@@ -24,20 +248,26 @@ const GroupDetails = () => {
   const [splitMethod, setSplitMethod] = useState('Equal Split');
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [selectedExpense, setSelectedExpense] = useState(null);
   const [customSplits, setCustomSplits] = useState({});
   const [percentageSplits, setPercentageSplits] = useState({});
 
   // States for Invitation
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteMessage, setInviteMessage] = useState(''); // Για success/error messages
+  const [inviteMessage, setInviteMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // General Dashboard states
+  const [group, setGroup] = useState(null);
+  const [debts, setDebts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchExpenses = async () => {
+      if (!groupId || !user?.token) return;
       try {
-        const groupResponse = await fetch(`http://localhost:5000/api/groups/${id}`, {
+        const groupResponse = await fetch(`http://localhost:5000/api/groups/${groupId}`, {
           headers: {
             Authorization: `Bearer ${user.token}`,
           },
@@ -56,7 +286,7 @@ const GroupDetails = () => {
         if (formattedMembers.length > 0) {
           setPaidBy(formattedMembers[0].id);
         }
-        const data = await expenseService.getGroupExpenses(id);
+        const data = await expenseService.getGroupExpenses(groupId);
 
         const formattedExpenses = data.map((expense) => ({
           _id: expense._id,
@@ -78,7 +308,7 @@ const GroupDetails = () => {
     };
 
     fetchExpenses();
-  }, [id, user.token]);
+  }, [groupId, user?.token]);
 
   // Handle Invitation Request
   const handleInviteAction = async (e) => {
@@ -89,13 +319,11 @@ const GroupDetails = () => {
       setIsLoading(true);
       setInviteMessage('');
       
-      // Καλεί το API (στέλνει το id της ομάδας και το email)
-      const res = await sendInvitation(id, inviteEmail);
+      const res = await sendInvitation(groupId, inviteEmail);
       
       setInviteMessage({ type: 'success', text: res.message });
-      setInviteEmail(''); // Καθαρίζει το input
+      setInviteEmail('');
       
-      // Κλείνει το modal μετά από 2 δευτερόλεπτα
       setTimeout(() => {
         setShowInviteModal(false);
         setInviteMessage('');
@@ -111,9 +339,51 @@ const GroupDetails = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchGroup = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/groups/${groupId}/dashboard`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${user.token}`,
+            },
+          }
+        );
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.message || `Request failed: ${res.status}`);
+        }
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || "Unexpected response from server");
+        const transformed = transformGroupData(json.data);
+        setGroup(transformed);
+        setDebts(transformed.debts);
+      } catch (err) {
+        setError(err.message || "Something went wrong.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (groupId && user?.token) fetchGroup();
+  }, [groupId, user?.token]);
+
+  const handleSettleDebt = (debtId) => {
+    setDebts((prev) => prev.map((d) => (d.id === debtId ? { ...d, settled: true } : d)));
+  };
+
+  const activeDebts = debts.filter((d) => !d.settled);
+  const settledDebts = debts.filter((d) => d.settled);
+
   return (
     <div className="flex h-screen bg-gray-50/50">
-      {/* Sidebar */}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col pt-8">
         <div className="px-8 mb-12">
           <h1 className="text-2xl font-bold text-blue-800">SplitWise</h1>
@@ -121,45 +391,51 @@ const GroupDetails = () => {
         </div>
 
         <nav className="flex-1 space-y-2 px-4">
-          <Link to="/?tab=overview" className="flex items-center gap-3 px-4 py-3 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+          <Link
+            to="/?tab=overview"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-100"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
             </svg>
             <span className="font-medium text-sm">Overview</span>
           </Link>
 
-          <Link to="/?tab=groups" className="flex items-center gap-3 px-4 py-3 text-blue-700 bg-blue-50 rounded-lg transition-colors relative">
+          <Link
+            to="/?tab=groups"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative text-blue-700 bg-blue-50/50"
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-700 rounded-r-full" />
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             <span className="font-medium text-sm">Groups</span>
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-700 rounded-r-full"></div>
           </Link>
         </nav>
+
+        <div className="p-4 border-t border-gray-200 mt-auto" />
       </div>
 
-      {/* Main Content */}
+      {/* ── Main Content ─────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Header */}
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10">
-          <div className="flex items-center gap-4">
+        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-10 flex-shrink-0">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/?tab=groups')}
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
+              onClick={() => navigate("/?tab=groups")}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-700 transition-colors mr-2"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
+              <ChevronLeft size={16} />
+              <span>Groups</span>
             </button>
-            <h2 className="text-xl font-semibold text-blue-800">
-              {groupName || 'Group Details'}
+            <span className="text-gray-300">/</span>
+            <h2 className="text-xl font-semibold text-blue-800 ml-2">
+              {loading ? "Loading…" : (group?.name ?? "Group Details")}
             </h2>
           </div>
 
@@ -167,324 +443,374 @@ const GroupDetails = () => {
             <NotificationBell />
             <Link to="/profile" className="block w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-gray-300 text-white">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
               </svg>
             </Link>
           </div>
         </header>
 
-        {/* Content Body */}
-        <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Expenses</h3>
-              <p className="text-sm text-gray-500">
-                Add and manage shared group expenses.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setShowInviteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="8.5" cy="7" r="4"></circle>
-                  <line x1="20" y1="8" x2="20" y2="14"></line>
-                  <line x1="23" y1="11" x2="17" y2="11"></line>
-                </svg>
-                Invite Member
-              </button> 
-
+        {/* Content Body Layout Ternary Cascade */}
+        {loading ? (
+          <LoadingSkeleton />
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center p-10">
+            <div className="bg-white rounded-2xl shadow-sm p-8 text-center max-w-sm">
+              <p className="text-red-500 font-semibold text-lg mb-2">Could not load group</p>
+              <p className="text-gray-400 text-sm">{error}</p>
               <button
-                onClick={() => setShowExpenseForm(true)}
-                className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+                onClick={() => navigate("/?tab=groups")}
+                className="mt-4 text-blue-700 text-sm font-medium hover:underline flex items-center gap-1 mx-auto"
               >
-                Add Expense
+                <ChevronLeft size={14} /> Back to Groups
               </button>
             </div>
           </div>
+        ) : (
+          <main className="flex-1 overflow-y-auto p-10 bg-gray-50/30 space-y-10">
+            <div className="max-w-5xl mx-auto space-y-8">
+              {/* Page Header Area with Buttons Left of Member Tag */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setShowInviteModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="8.5" cy="7" r="4"></circle>
+                      <line x1="20" y1="8" x2="20" y2="14"></line>
+                      <line x1="23" y1="11" x2="17" y2="11"></line>
+                    </svg>
+                    Invite Member
+                  </button> 
 
-          {showExpenseForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  {editingIndex !== null ? 'Edit Expense' : 'Add Expense'}
-                </h3>
+                  <button
+                    onClick={() => setShowExpenseForm(true)}
+                    className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm mr-1"
+                  >
+                    Add Expense
+                  </button>
 
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Dinner, Trip, Hotel..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Paid By
-                    </label>
-                    <select
-                      value={paidBy}
-                      onChange={(e) => setPaidBy(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Split Method
-                    </label>
-                    <select
-                      value={splitMethod}
-                      onChange={(e) => setSplitMethod(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option>Equal Split</option>
-                      <option>Exact Amounts</option>
-                      <option>Percentages</option>
-                    </select>
+                  <div className="hidden md:flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2 shadow-sm text-sm text-gray-500 font-medium">
+                    <UserCircle size={16} className="text-indigo-400" />
+                    {group.members.length} members
                   </div>
                 </div>
+              </div>
 
-                {splitMethod === 'Equal Split' && amount && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <p className="text-sm font-medium text-blue-800 mb-2">
-                      Equal Split Preview
-                    </p>
-                    <p className="text-sm text-blue-700">
-                      Each member owes: €{(Number(amount) / members.length).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      Split between {members.length} members
-                    </p>
+              {/* A. Stat Cards */}
+              <section>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard
+                    icon={Receipt}
+                    label="Total Expenses"
+                    value={formatEuro(group.totalExpenses)}
+                    iconBg="bg-indigo-50"
+                    iconColor="text-indigo-500"
+                  />
+                  <StatCard
+                    icon={Wallet}
+                    label="Group Balance"
+                    value={formatEuro(group.totalBalance)}
+                    iconBg={group.totalBalance >= 0 ? "bg-emerald-50" : "bg-red-50"}
+                    iconColor={group.totalBalance >= 0 ? "text-emerald-500" : "text-red-500"}
+                  />
+                  <StatCard
+                    icon={Users}
+                    label="Members"
+                    value={group.members.length}
+                    iconBg="bg-violet-50"
+                    iconColor="text-violet-500"
+                  />
+                  <StatCard
+                    icon={Clock}
+                    label="Pending Debts"
+                    value={activeDebts.length}
+                    iconBg="bg-amber-50"
+                    iconColor="text-amber-500"
+                  />
+                </div>
+              </section>
+
+              {/* B. Debt Summary */}
+              <DebtSummary groupId={groupId} />
+
+              {/* C. Members Grid */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Users size={18} className="text-indigo-500" />
+                  <h2 className="text-lg font-bold text-gray-800">Members</h2>
+                  <span className="ml-auto text-xs text-gray-400 font-medium">
+                    {group.members.length} total
+                  </span>
+                </div>
+
+                {group.members.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+                    <Users size={40} className="text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 font-semibold">No members yet</p>
+                    <p className="text-gray-400 text-sm mt-1">Invite people to join this group.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.members.map((member) => (
+                      <MemberCard key={member.id} member={member} />
+                    ))}
                   </div>
                 )}
+              </section>
 
-                {splitMethod === 'Exact Amounts' && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-gray-800 mb-3">
-                      Exact Amounts
-                    </p>
-                    <div className="space-y-3">
-                      {members.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between gap-3">
-                          <span className="text-sm text-gray-700">{member.name}</span>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            value={customSplits[member.name] || ''}
-                            onChange={(e) =>
-                              setCustomSplits({
-                                ...customSplits,
-                                [member.name]: e.target.value,
-                              })
-                            }
-                            className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
+              {/* D. Debt Relationships */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <ArrowRight size={18} className="text-indigo-500" />
+                  <h2 className="text-lg font-bold text-gray-800">Debt Relationships</h2>
+                  {activeDebts.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-red-50 text-red-500 text-xs font-semibold rounded-full">
+                      {activeDebts.length} active
+                    </span>
+                  )}
+                  {settledDebts.length > 0 && (
+                    <span className="ml-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-full">
+                      {settledDebts.length} settled
+                    </span>
+                  )}
+                </div>
 
-                    <div className="mt-4 border-t border-gray-200 pt-3">
-                      <div className="space-y-1 mb-3">
-                        {members.map((member) => (
-                          <p key={member.id} className="text-sm text-gray-600">
-                            {member.name} owes: €
-                            {(
-                              (Number(amount || 0) * Number(percentageSplits[member] || 0)) /
-                              100
-                            ).toFixed(2)}
-                          </p>
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Total assigned: €
-                        {Object.values(customSplits)
-                          .reduce((sum, value) => sum + Number(value || 0), 0)
-                          .toFixed(2)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Expense total: €{Number(amount || 0).toFixed(2)}
-                      </p>
-                      {amount &&
-                        Object.values(customSplits).reduce(
-                          (sum, value) => sum + Number(value || 0),
-                          0
-                        ) !== Number(amount) && (
-                          <p className="text-sm text-red-600 mt-2">
-                            The exact amounts must add up to the total expense.
-                          </p>
-                        )}
-                    </div>
+                {debts.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+                    <CheckCircle size={40} className="text-emerald-400 mx-auto mb-3" />
+                    <p className="text-gray-600 font-semibold">All settled up!</p>
+                    <p className="text-gray-400 text-sm mt-1">No outstanding debts in this group.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {[...activeDebts, ...settledDebts].map((debt) => (
+                      <DebtRow key={debt.id} debt={debt} onSettle={handleSettleDebt} />
+                    ))}
                   </div>
                 )}
+              </section>
 
-                {splitMethod === 'Percentages' && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-gray-800 mb-3">
-                      Percentages
-                    </p>
-                    <div className="space-y-3">
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between gap-3"
-                        >
-                          <span className="text-sm text-gray-700">
-                            {member.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              placeholder="0"
-                              value={percentageSplits[member.name] || ''}
-                              onChange={(e) =>
-                                setPercentageSplits({
-                                  ...percentageSplits,
-                                  [member.name]: e.target.value,
-                                })
-                              }
-                              className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-500">%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+              <p className="text-center text-xs text-gray-300 pt-4 pb-4">
+                GroupDetails · Expense Sharing Platform
+              </p>
+            </div>
+          </main>
+        )}
+      </div>
 
-                    <div className="mt-4 border-t border-gray-200 pt-3">
-                      <div className="space-y-1 mb-3">
-                        {members.map((member) => (
-                          <p key={member.id} className="text-sm text-gray-600">
-                            {member.name} owes: €
-                            {(
-                              (Number(amount || 0) * Number(percentageSplits[member.name] || 0)) /
-                              100
-                            ).toFixed(2)}
-                          </p>
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Total percentage: {' '}
-                        {Object.values(percentageSplits)
-                          .reduce((sum, value) => sum + Number(value || 0), 0)}
-                        %
-                      </p>
-                      {Object.values(percentageSplits).reduce(
-                        (sum, value) => sum + Number(value || 0),
-                        0
-                      ) !== 100 && (
-                        <p className="text-sm text-red-600 mt-2">
-                          Percentages must equal 100%.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+      {/* MODAL: Expense Form Input */}
+      {showExpenseForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {editingIndex !== null ? 'Edit Expense' : 'Add Expense'}
+            </h3>
 
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowExpenseForm(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!description || !amount || !date) {
-                        alert('Please fill all fields.');
-                        return;
-                      }
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <input
+                  type="text"
+                  placeholder="Dinner, Trip, Hotel..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-                      if (Number(amount) <= 0) {
-                        alert('Amount must be greater than 0.');
-                        return;
-                      }
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-                      if (splitMethod === 'Exact Amounts') {
-                        const totalAssigned = Object.values(customSplits).reduce(
-                          (sum, value) => sum + Number(value || 0),
-                          0
-                        );
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-                        if (totalAssigned !== Number(amount)) {
-                          alert('Exact amounts must equal the total expense.');
-                          return;
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paid By</label>
+                <select
+                  value={paidBy}
+                  onChange={(e) => setPaidBy(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Split Method</label>
+                <select
+                  value={splitMethod}
+                  onChange={(e) => setSplitMethod(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option>Equal Split</option>
+                  <option>Exact Amounts</option>
+                  <option>Percentages</option>
+                </select>
+              </div>
+            </div>
+
+            {splitMethod === 'Equal Split' && amount && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-blue-800 mb-2">Equal Split Preview</p>
+                <p className="text-sm text-blue-700">
+                  Each member owes: €{(Number(amount) / (members.length || 1)).toFixed(2)}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">Split between {members.length} members</p>
+              </div>
+            )}
+
+            {splitMethod === 'Exact Amounts' && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-gray-800 mb-3">Exact Amounts</p>
+                <div className="space-y-3">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-gray-700">{member.name}</span>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={customSplits[member.name] || ''}
+                        onChange={(e) =>
+                          setCustomSplits({
+                            ...customSplits,
+                            [member.name]: e.target.value,
+                          })
                         }
-                      }
+                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  ))}
+                </div>
 
-                      if (splitMethod === 'Percentages') {
-                        const totalPercentage = Object.values(percentageSplits).reduce(
-                          (sum, value) => sum + Number(value || 0),
-                          0
-                        );
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <p className="text-sm text-gray-600">
+                    Total assigned: €
+                    {Object.values(customSplits)
+                      .reduce((sum, val) => sum + Number(val || 0), 0)
+                      .toFixed(2)}
+                  </p>
+                  <p className="text-sm text-gray-600">Expense total: €{Number(amount || 0).toFixed(2)}</p>
+                  {amount &&
+                    Object.values(customSplits).reduce((sum, val) => sum + Number(val || 0), 0) !== Number(amount) && (
+                      <p className="text-sm text-red-600 mt-2">The exact amounts must add up to the total expense.</p>
+                    )}
+                </div>
+              </div>
+            )}
 
-                        if (totalPercentage !== 100) {
-                          alert('Percentages must equal 100%.');
-                          return;
-                        }
-                      }
+            {splitMethod === 'Percentages' && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-gray-800 mb-3">Percentages</p>
+                <div className="space-y-3">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-gray-700">{member.name}</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={percentageSplits[member.name] || ''}
+                          onChange={(e) =>
+                            setPercentageSplits({
+                              ...percentageSplits,
+                              [member.name]: e.target.value,
+                            })
+                          }
+                          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-500">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                      const expenseData = {
-                        groupId: id,
-                        description,
-                        totalAmount: Number(amount),
-                        date,
-                        payer: paidBy,
-                        splitMethod,
-                        amountPerMember:
-                          splitMethod === 'Equal Split'
-                            ? Number((Number(amount) / members.length).toFixed(2))
-                            : null,
-                        customSplits:
-                          splitMethod === 'Exact Amounts'
-                            ? customSplits
-                            : null,
-                        percentageSplits:
-                          splitMethod === 'Percentages'
-                            ? percentageSplits
-                            : null,
-                     splits: members.map((member) => {
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <div className="space-y-1 mb-3">
+                    {members.map((member) => (
+                      <p key={member.id} className="text-sm text-gray-600">
+                        {member.name} owes: €
+                        {((Number(amount || 0) * Number(percentageSplits[member.name] || 0)) / 100).toFixed(2)}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Total percentage: {Object.values(percentageSplits).reduce((sum, val) => sum + Number(val || 0), 0)}%
+                  </p>
+                  {Object.values(percentageSplits).reduce((sum, val) => sum + Number(val || 0), 0) !== 100 && (
+                    <p className="text-sm text-red-600 mt-2">Percentages must equal 100%.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowExpenseForm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!description || !amount || !date) {
+                    alert('Please fill all fields.');
+                    return;
+                  }
+                  if (Number(amount) <= 0) {
+                    alert('Amount must be greater than 0.');
+                    return;
+                  }
+                  if (splitMethod === 'Exact Amounts') {
+                    const totalAssigned = Object.values(customSplits).reduce((sum, v) => sum + Number(v || 0), 0);
+                    if (totalAssigned !== Number(amount)) {
+                      alert('Exact amounts must equal the total expense.');
+                      return;
+                    }
+                  }
+                  if (splitMethod === 'Percentages') {
+                    const totalPercentage = Object.values(percentageSplits).reduce((sum, v) => sum + Number(v || 0), 0);
+                    if (totalPercentage !== 100) {
+                      alert('Percentages must equal 100%.');
+                      return;
+                    }
+                  }
+
+                  const expenseData = {
+                    groupId: groupId,
+                    description,
+                    totalAmount: Number(amount),
+                    date,
+                    payer: paidBy,
+                    splitMethod,
+                    amountPerMember: splitMethod === 'Equal Split' ? Number((Number(amount) / members.length).toFixed(2)) : null,
+                    customSplits: splitMethod === 'Exact Amounts' ? customSplits : null,
+                    percentageSplits: splitMethod === 'Percentages' ? percentageSplits : null,
+                    splits: members.map((member) => {
                               let amountOwed = 0;
                               if (splitMethod === 'Equal Split') {
                                 amountOwed = Number((Number(amount) / members.length).toFixed(2));
@@ -498,236 +824,50 @@ const GroupDetails = () => {
                                 amountOwed,
                               };
                             }),
-                      };
+                  };
 
-                      if (editingIndex !== null && editingId) {
-                        await expenseService.updateExpense(editingId, expenseData);
-                      } else {
-                        await expenseService.createExpense(expenseData);
-                      }
+                  if (editingIndex !== null && editingId) {
+                    await expenseService.updateExpense(editingId, expenseData);
+                  } else {
+                    await expenseService.createExpense(expenseData);
+                  }
 
-                      const newExpense = {
-                        description,
-                        amount,
-                        date,
-                        paidBy,
-                        splitMethod,
-                        amountPerMember: splitMethod === 'Equal Split'
-                        ? (Number(amount) / members.length).toFixed(2)
-                        : null,
-                      };
+                  const newExpense = {
+                    description,
+                    amount,
+                    date,
+                    paidBy,
+                    splitMethod,
+                    amountPerMember: splitMethod === 'Equal Split' ? (Number(amount) / members.length).toFixed(2) : null,
+                  };
 
-                      if (editingIndex !== null) {
-                        const updatedExpenses = [...expenses];
-                        updatedExpenses[editingIndex] = newExpense;
-                        setExpenses(updatedExpenses);
-                        setEditingIndex(null);
-                        setEditingId(null);
-                      } else {
-                        setExpenses([...expenses, newExpense]);
-                      }
+                  if (editingIndex !== null) {
+                    const updatedExpenses = [...expenses];
+                    updatedExpenses[editingIndex] = newExpense;
+                    setExpenses(updatedExpenses);
+                  } else {
+                    setExpenses([...expenses, newExpense]);
+                  }
 
-                      setEditingIndex(null);
-                      setDescription('');
-                      setAmount('');
-                      setDate('');
-                      setPaidBy(members[0]);
-                      setSplitMethod('Equal Split');
-
-                      setShowExpenseForm(false);
-                    }}
-                    className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800"
-                  >
-                    {editingIndex !== null ? 'Update Expense' : 'Save Expense'}
-                  </button>
-                </div>
-              </div>
+                  setEditingIndex(null);
+                  setEditingId(null);
+                  setDescription('');
+                  setAmount('');
+                  setDate('');
+                  setPaidBy(members[0]?.id || '');
+                  setSplitMethod('Equal Split');
+                  setShowExpenseForm(false);
+                }}
+                className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800"
+              >
+                {editingIndex !== null ? 'Update Expense' : 'Save Expense'}
+              </button>
             </div>
-          )}
-
-          {selectedExpense && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  Expense Details
-                </h3>
-
-                <div className="space-y-3 text-sm text-gray-700">
-                  <p><strong>Description:</strong> {selectedExpense.description}</p>
-                  <p><strong>Amount:</strong> €{selectedExpense.amount}</p>
-                  <p><strong>Date:</strong> {selectedExpense.date}</p>
-                  <p><strong>Paid by:</strong> {selectedExpense.paidByName}</p>
-                  <p><strong>Split:</strong> {selectedExpense.splitMethod}</p>
-                  
-                  {selectedExpense.splitMethod === 'Equal Split' && (
-                    <div>
-                      <strong>Amounts per member:</strong>
-                      {members.map((member) => {
-                        const perMemberAmount =
-                          selectedExpense.amountPerMember ||
-                          Number(selectedExpense.amount) / members.length;
-
-                        return (
-                          <p key={member.id}>
-                            {member.name}: €{Number(perMemberAmount).toFixed(2)}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {selectedExpense.amountPerMember && (
-                    <p>
-                      <strong>Each member owes:</strong> €{selectedExpense.amountPerMember}
-                    </p>
-                  )}
-
-                  {selectedExpense.splitMethod === 'Exact Amounts' && selectedExpense.customSplits && (
-                    <div>
-                      <strong>Amounts per member:</strong>
-                      {Object.entries(selectedExpense.customSplits).map(([member, value]) => (
-                        <p key={member}>
-                          {member}: €{Number(value || 0).toFixed(2)}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-
-                  {selectedExpense.splitMethod === 'Percentages' && selectedExpense.percentageSplits && (
-                    <div>
-                      <strong>Amounts per member:</strong>
-                      {Object.entries(selectedExpense.percentageSplits).map(([member, value]) => (
-                        <p key={member}>
-                          {member}: €{((Number(selectedExpense.amount) * Number(value || 0)) / 100).toFixed(2)}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end mt-6">
-                  <button
-                    onClick={() => setSelectedExpense(null)}
-                    className="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* === Υπολογισμός Χρεών & Εξοφλήσεις === */}
-          <DebtSummary groupId={id} />
-
-          <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Total Expenses
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {expenses.length} expense(s)
-                </p>
-              </div>
-
-              <div className="text-2xl font-bold text-blue-700">
-                €
-                {expenses
-                  .reduce((total, expense) => total + Number(expense.amount), 0)
-                  .toFixed(2)}
-              </div>
-            </div>
-
-            {expenses.length === 0 ? (
-              <p className="text-gray-500 text-sm">
-                No expenses added yet.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {expenses.map((expense, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {expense.description}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        Paid by {expense.paidByName}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Split: {expense.splitMethod}
-                      </p>
-                      {expense.amountPerMember && (
-                         <p className="text-sm text-gray-500">
-                            Each member owes: €{expense.amountPerMember}
-                         </p>
-                      )}
-                      <p className="text-sm text-gray-400">
-                        {expense.date}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="text-lg font-bold text-blue-700">
-                         €{expense.amount}
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setEditingIndex(index);
-                          setEditingId(expense._id);
-                          setDescription(expense.description);
-                          setAmount(expense.amount);
-                          setDate(expense.date);
-                          setPaidBy(expense.paidBy);
-                          setSplitMethod(expense.splitMethod);
-                          setShowExpenseForm(true);
-                        }}
-                        className="text-sm text-blue-700 hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await expenseService.deleteExpense(expense._id);
-
-                            const updatedExpenses = expenses.filter(
-                              (_, expenseIndex) => expenseIndex !== index
-                            );
-
-                            setExpenses(updatedExpenses);
-                          } catch (error) {
-                            console.error(error);
-                            alert('Failed to delete expense.');
-                          }
-                        }}
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => {
-                          console.log(expense);
-                          setSelectedExpense(expense);
-                        }}
-                        className="text-sm text-gray-700 hover:underline"
-                      >
-                        Preview
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        </main>
-      </div>
+        </div>
+      )}
 
-      {/* MODAL: Πρόσκλησης Χρήστη */}
+      {/* MODAL: Invite Member */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
