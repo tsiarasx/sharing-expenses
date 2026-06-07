@@ -1,5 +1,5 @@
 # Χρησιμοποιούμε μια ελαφριά έκδοση του Node.js (Alpine)
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Ορίζουμε τον φάκελο εργασίας μέσα στο container
 WORKDIR /app
