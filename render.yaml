@@ -1,0 +1,25 @@
+services:
+  # ── Backend Web Service ──────────────────────────────────────────────────
+  - type: web
+    name: sharing-expenses-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGO_URI
+        sync: false        # You will paste this in the Render dashboard
+      - key: JWT_SECRET
+        sync: false        # You will paste this in the Render dashboard
+      # PORT is provided automatically by Render — do not add it here
+
+  # ── Frontend Static Site ─────────────────────────────────────────────────
+  - type: web
+    name: sharing-expenses-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false        # Set this to your backend URL after backend deploys
