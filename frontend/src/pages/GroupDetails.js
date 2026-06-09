@@ -330,7 +330,8 @@ const GroupDetails = () => {
   const fetchExpenses = useCallback(async () => {  
     if (!groupId || !user?.token) return;  
     try {  
-      const groupResponse = await fetch(`http://localhost:5000/api/groups/${groupId}`, {  
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const groupResponse = await fetch(`${API_URL}/api/groups/${groupId}`, {
         headers: { Authorization: `Bearer ${user.token}` },  
       });  
       const groupData = await groupResponse.json();  
@@ -375,7 +376,8 @@ const GroupDetails = () => {
     setLoading(true);  
     setError(null);  
     try {  
-      const res = await fetch(`http://localhost:5000/api/groups/${groupId}/dashboard`, {  
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/groups/${groupId}/dashboard`, {
         method: "GET",  
         headers: {  
           "Content-Type": "application/json",  
